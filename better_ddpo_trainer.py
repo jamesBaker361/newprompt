@@ -25,7 +25,8 @@ from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
 from huggingface_hub import whoami
 
-from . import BaseTrainer, DDPOConfig
+from base_trainer import BaseTrainer
+from trl import DDPOConfig
 from per_prompt import PerPromptStatTracker
 from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
 
