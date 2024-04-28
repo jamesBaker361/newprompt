@@ -31,6 +31,7 @@ from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
 from better_ddpo_trainer import BetterDDPOTrainer
 from text_embedding_helpers import prepare_textual_inversion
 from trl import DDPOConfig
+from pareto import get_dominant_list
 import random
 
 def cos_sim(vector_i,vector_j)->float:
@@ -130,7 +131,7 @@ def evaluate_one_sample(
             train_unet,
             use_lora_text_encoder,
             use_lora=use_lora,
-            pretrained_model_name="runwayml/stable-diffusion-v1-5",safety_checker=None
+            pretrained_model_name="runwayml/stable-diffusion-v1-5"
         )
         entity_name=subject
         if train_text_encoder_embeddings:
@@ -189,24 +190,42 @@ def evaluate_one_sample(
         if reward_method==REWARD_NORMAL:
             def reward_fn(images, prompts, epoch,prompt_metadata):
                 image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
-                distances=[-1.0 * cos_sim(vit_src_image_embedding,embedding)
+                distances=[ cos_sim(vit_src_image_embedding,embedding)
                            for embedding in image_vit_embeddings]
                 return distances, {}
         elif reward_method==REWARD_TIME:
             def reward_fn(images, prompts, epoch,prompt_metadata):
                 image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
-                distances=[1.0-  cos_sim(vit_src_image_embedding,embedding)
+                distances=[ cos_sim(vit_src_image_embedding,embedding)
                            for embedding in image_vit_embeddings]
                 scores=[
                     0.5+ ir_model( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ]
+                ] #by default its normalized to have mean=0, std dev=1
                 score_weight=float(epoch)/num_epochs
                 distance_weight=1.0-score_weight
                 distances=distance_weight*distances
                 scores=score_weight*scores
                 return [d+s for d,s in zip(distances,scores)],{}
         elif reward_method==REWARD_PARETO: #todo
-            pass
+            def reward_fn(images, prompts, epoch,prompt_metadata):
+                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
+                distances=[ cos_sim(vit_src_image_embedding,embedding)
+                           for embedding in image_vit_embeddings]
+                scores=[
+                    0.5+ ir_model( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
+                ] #by default its normalized to have mean=0, std dev=1
+                dominant_list=get_dominant_list(distances,scores)
+                #score_weight=float(epoch)/num_epochs
+                #distance_weight=1.0-score_weight
+                #distances=distance_weight*distances
+                #scores=score_weight*scores
+                rewards=[]
+                for i in range(len(scores)):
+                    if i in dominant_list:
+                        rewards.append(scores[i]+distances[i])
+                    else:
+                        rewards.append(0.0)
+                return rewards,{}
 
         def image_samples_hook(*args):
             return
