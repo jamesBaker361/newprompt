@@ -227,7 +227,9 @@ def evaluate_one_sample(
                     negative_prompt=NEGATIVE,
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
-
+    elif method_name==DPOK: #TODO
+        pass
+    
     elif method_name in [CHOSEN,CHOSEN_K,CHOSEN_K_STYLE,CHOSEN_STYLE]:
         vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
         vit_model = ViTModel.from_pretrained('facebook/dino-vitb16')
