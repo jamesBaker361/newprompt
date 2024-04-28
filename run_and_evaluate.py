@@ -63,7 +63,21 @@ def evaluate_one_sample(
         batch_size:int,
         mixed_precision:str,
         reward_method:str,
-        num_epochs:int
+        num_epochs:int,
+        p_step,
+        p_batch_size,
+        v_flag,
+        g_step,
+        g_batch_size,
+        reward_weight,
+        kl_weight,
+        kl_warmup,
+        buffer_size,
+        v_batch_size,
+        v_lr,
+        v_step,
+        save_interval,
+        num_samples
 )->dict:
     method_name=method_name.strip()
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -226,6 +240,27 @@ def evaluate_one_sample(
                     else:
                         rewards.append(0.0)
                 return rewards,{}
+        elif reward_method==REWARD_PARETO_TIME:
+            def reward_fn(images, prompts, epoch,prompt_metadata):
+                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
+                distances=[ cos_sim(vit_src_image_embedding,embedding)
+                           for embedding in image_vit_embeddings]
+                scores=[
+                    0.5+ ir_model( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
+                ] #by default its normalized to have mean=0, std dev=1
+                dominant_list=get_dominant_list(distances,scores)
+                score_weight=float(epoch)/num_epochs
+                distance_weight=1.0-score_weight
+                distances=distance_weight*distances
+                scores=score_weight*scores
+                rewards=[]
+                for i in range(len(scores)):
+                    if i in dominant_list:
+                        rewards.append(scores[i]+distances[i])
+                    else:
+                        rewards.append(0.0)
+                return rewards,{}
+
 
         def image_samples_hook(*args):
             return

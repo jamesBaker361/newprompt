@@ -53,6 +53,90 @@ parser.add_argument("--batch_size",type=int,default=4)
 parser.add_argument("--train_gradient_accumulation_steps",type=int,default=16)
 parser.add_argument("--reward_method",type=str,default=REWARD_NORMAL, help=f"one of {' '.join(REWARD_TYPE_LIST)}")
 parser.add_argument("--num_epochs",type=int,default=10)
+parser.add_argument(
+    "--p_step",
+    type=int,
+    default=5,
+    help="The number of steps to update the policy per sampling step",
+)
+parser.add_argument(
+    "--p_batch_size",
+    type=int,
+    default=2,
+    help=(
+        "batch size for policy update per gpu, before gradient accumulation;"
+        " total batch size per gpu = gradient_accumulation_steps *"
+        " p_batch_size"
+    ),
+)
+parser.add_argument(
+    "--v_flag",
+    type=int,
+    default=1,
+)
+parser.add_argument(
+    "--g_step", type=int, default=1, help="The number of sampling steps"
+)
+parser.add_argument(
+    "--g_batch_size",
+    type=int,
+    default=6,
+    help="batch size of prompts for sampling per gpu",
+)
+parser.add_argument(
+    "--reward_weight", type=float, default=100, help="weight of reward loss"
+)
+parser.add_argument(
+    "--kl_weight", type=float, default=0.01, help="weight of kl loss"
+)
+parser.add_argument(
+    "--kl_warmup", type=int, default=-1, help="warm up for kl weight"
+)
+parser.add_argument(
+    "--buffer_size", type=int, default=1000, help="size of replay buffer"
+)
+parser.add_argument(
+    "--v_batch_size", type=int, default=256, 
+    help="batch size for value function update per gpu, no gradient accumulation"  # pylint: disable=line-too-long
+)
+parser.add_argument(
+    "--v_lr", type=float, default=1e-4, help="learning rate for value fn"
+)
+parser.add_argument(
+    "--v_step", type=int, default=5,
+    help="The number of steps to update the value function per sampling step"
+)
+parser.add_argument(
+    "--save_interval",
+    type=int,
+    default=100,
+    help="save model every save_interval steps",
+)
+parser.add_argument(
+    "--num_samples",
+    type=int,
+    default=1,
+    help="number of samples to generate per prompt",
+)
+parser.add_argument(
+    "--clip_norm", type=float, default=0.1, help="norm for gradient clipping"
+)
+'''  parser.add_argument(
+      "--gradient_accumulation_steps",
+      type=int,
+      default=12,
+      help=(
+          "Number of updates steps to accumulate before performing a"
+          " backward/update pass for policy"
+      ),
+  )
+  parser.add_argument("--lora_rank", type=int, default=4, help="rank for LoRA")
+  parser.add_argument(
+      "--learning_rate",
+      type=float,
+      default=1e-5,
+      help="Learning rate for policy",
+  )'''
 
 def main(args):
     accelerator=Accelerator(log_with="wandb")
@@ -117,7 +201,21 @@ def main(args):
                                                                 args.batch_size,
                                                                 args.mixed_precision,
                                                                 args.reward_method,
-                                                                args.num_epochs
+                                                                args.num_epochs,
+                                                                args.p_step,
+                                                                args.p_batch_size,
+                                                                args.v_flag,
+                                                                args.g_step,
+                                                                args.g_batch_size,
+                                                                args.reward_weight,
+                                                                args.kl_weight,
+                                                                args.kl_warmup,
+                                                                args.buffer_size,
+                                                                args.v_batch_size,
+                                                                args.v_lr,
+                                                                args.v_step,
+                                                                args.save_interval,
+                                                                args.num_samples
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
