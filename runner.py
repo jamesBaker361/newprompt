@@ -51,7 +51,7 @@ parser.add_argument("--use_lora",action="store_true",help="unet ddpo use lora")
 parser.add_argument("--mixed_precision",type=str,default="no")
 parser.add_argument("--batch_size",type=int,default=4)
 parser.add_argument("--train_gradient_accumulation_steps",type=int,default=16)
-parser.add_argument("--reward_format",type=str,default=REWARD_NORMAL, help=f"one of {' '.join(REWARD_TYPE_LIST)}")
+parser.add_argument("--reward_method",type=str,default=REWARD_NORMAL, help=f"one of {' '.join(REWARD_TYPE_LIST)}")
 parser.add_argument("--num_epochs",type=int,default=10)
 
 def main(args):
@@ -116,7 +116,7 @@ def main(args):
                                                                 args.train_gradient_accumulation_steps,
                                                                 args.batch_size,
                                                                 args.mixed_precision,
-                                                                args.reward_format,
+                                                                args.reward_method,
                                                                 args.num_epochs
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
