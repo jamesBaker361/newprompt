@@ -6,7 +6,7 @@ def dominates(sample_values_dominant:list,sample_values_submissive:list)->bool:
             return False
     return True
 
-def get_pareto_set(*list_args)->list:
+def get_dominant_list(*list_args)->list:
     num_samples=len(list_args[0])
     sample_dict={}
     for n in range(num_samples):
@@ -26,4 +26,4 @@ def get_pareto_set(*list_args)->list:
     for src_list in list_args:
         return_list=[src_list[d] for d in dominant_set]
         return_mega_list.append(return_list)
-    return return_mega_list
+    return [d for d in dominant_set]
