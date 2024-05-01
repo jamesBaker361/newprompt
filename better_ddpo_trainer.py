@@ -230,7 +230,7 @@ class BetterDDPOTrainer(BaseTrainer):
 
         return zip(*rewards)
 
-    def step(self, epoch: int, global_step: int):
+    def step(self, epoch: int, global_step: int,retain_graph:bool):
         """
         Perform a single step of training.
 
@@ -324,15 +324,15 @@ class BetterDDPOTrainer(BaseTrainer):
             samples_batched = [dict(zip(original_keys, row_values)) for row_values in transposed_values]
 
             self.sd_pipeline.unet.train()
-            global_step = self._train_batched_samples(inner_epoch, epoch, global_step, samples_batched)
+            global_step = self._train_batched_samples(inner_epoch, epoch, global_step, samples_batched,retain_graph)
             # ensure optimization step at the end of the inner epoch
             if not self.accelerator.sync_gradients:
                 raise ValueError(
                     "Optimization step should have been performed by this point. Please check calculated gradient accumulation settings."
                 )
 
-        if epoch != 0 and epoch % self.config.save_freq == 0 and self.accelerator.is_main_process:
-            self.accelerator.save_state()
+        '''if epoch != 0 and epoch % self.config.save_freq == 0 and self.accelerator.is_main_process:
+            self.accelerator.save_state()'''
 
         return global_step
 
@@ -504,7 +504,7 @@ class BetterDDPOTrainer(BaseTrainer):
 
         return samples, prompt_image_pairs
 
-    def _train_batched_samples(self, inner_epoch, epoch, global_step, batched_samples):
+    def _train_batched_samples(self, inner_epoch, epoch, global_step, batched_samples,retain_graph):
         """
         Train on a batch of samples. Main training segment
 
@@ -543,7 +543,7 @@ class BetterDDPOTrainer(BaseTrainer):
                     info["clipfrac"].append(clipfrac)
                     info["loss"].append(loss)
 
-                    self.accelerator.backward(loss)
+                    self.accelerator.backward(loss,retain_graph=retain_graph)
                     if self.accelerator.sync_gradients:
                         self.accelerator.clip_grad_norm_(
                             self.trainable_layers.parameters()
@@ -592,7 +592,7 @@ class BetterDDPOTrainer(BaseTrainer):
             )
         return True, ""
 
-    def train(self, epochs: Optional[int] = None):
+    def train(self, epochs: Optional[int] = None,retain_graph:bool=False):
         """
         Train the model for a given number of epochs
         """
@@ -600,7 +600,7 @@ class BetterDDPOTrainer(BaseTrainer):
         if epochs is None:
             epochs = self.config.num_epochs
         for epoch in range(self.first_epoch, epochs):
-            global_step = self.step(epoch, global_step)
+            global_step = self.step(epoch, global_step,retain_graph)
 
     def create_model_card(self, path: str, model_name: Optional[str] = "TRL DDPO Model") -> None:
         """Creates and saves a model card for a TRL model.
