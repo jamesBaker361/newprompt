@@ -358,6 +358,9 @@ def evaluate_one_sample(
                   use_lora_text_encoder,
                   use_lora
         )
+        entity_name=subject
+        if train_text_encoder_embeddings:
+            entity_name=PLACEHOLDER
         trainable_parameters=pipeline.get_trainable_layers()
         optimizer = torch.optim.AdamW(
             trainable_parameters,
@@ -560,9 +563,9 @@ def evaluate_one_sample(
             value_optimizer.step()
             value_optimizer.zero_grad()
             if accelerator.is_main_process:
-                print("value_loss", tot_val_loss)
-                accelerator.log({"value_loss": tot_val_loss}, step=count)
-            del tot_val_loss
+                print("value_loss", total_val_loss)
+                accelerator.log({"value_loss": total_val_loss}, step=count)
+            del total_val_loss
             torch.cuda.empty_cache()
 
             #poloucy learning
