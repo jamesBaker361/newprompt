@@ -440,7 +440,7 @@ def evaluate_one_sample(
             txt_emb = reward_clip_model.get_text_features(
                 input_ids=padded_tokens.input_ids.to(accelerator.device).unsqueeze(0)
             )
-            return txt_emb
+            return txt_emb.squeeze(0)
 
         if reward_method==REWARD_NORMAL:
             def reward_fn(images, prompts, step):
