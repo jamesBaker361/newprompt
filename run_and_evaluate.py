@@ -574,24 +574,25 @@ def evaluate_one_sample(
                 optimizer.zero_grad()
                 for accum_step in range(train_gradient_accumulation_steps):
                     if accum_step<train_gradient_accumulation_steps-1:
-                        with accelerator.no_sync(*trainable_list):
-                            _train_policy_func(
-                                p_batch_size,
-                                ratio_clip,
-                                reward_weight,
-                                kl_warmup,
-                                kl_weight,
-                                train_gradient_accumulation_steps,
-                                state_dict,
-                                pipeline,
-                                unet_copy,
-                                False,
-                                count,
-                                policy_steps,
-                                accelerator,
-                                tpfdata,
-                                value_function
-                            )
+                        with accelerator.no_sync(unet):
+                            with accelerator.no_sync(text_encoder):
+                                _train_policy_func(
+                                    p_batch_size,
+                                    ratio_clip,
+                                    reward_weight,
+                                    kl_warmup,
+                                    kl_weight,
+                                    train_gradient_accumulation_steps,
+                                    state_dict,
+                                    pipeline,
+                                    unet_copy,
+                                    False,
+                                    count,
+                                    policy_steps,
+                                    accelerator,
+                                    tpfdata,
+                                    value_function
+                                )
                     else:
                         _train_policy_func(
                                 p_batch_size,
