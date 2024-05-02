@@ -331,14 +331,12 @@ def evaluate_one_sample(
             "fp16":torch.float16,
             "bf16":torch.bfloat16
         }[accelerator.mixed_precision]
-        reward_clip_model.requires_grad_(False)
         pipeline=DPOKPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5", torch_dtype=weight_dtype
         )
         unet=pipeline.unet
         pipeline.scheduler = DPOKDDIMScheduler.from_config(pipeline.scheduler.config)
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
-        unet_copy.requires_grad_(False)
         text_encoder=pipeline.text_encoder
         tokenizer=pipeline.tokenizer
         pipeline.text_encoder.to(accelerator.device, dtype=weight_dtype)
@@ -349,6 +347,8 @@ def evaluate_one_sample(
         vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
         reward_clip_model.to(accelerator.device)
+        for model in [reward_clip_model, vit_model, unet_copy]:
+            model.requires_grad_(False)
         vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)[0].to(accelerator.device)
 
         pipeline.setup_parameters(
