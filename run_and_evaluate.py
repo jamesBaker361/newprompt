@@ -334,6 +334,8 @@ def evaluate_one_sample(
         pipeline=DPOKPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5", torch_dtype=weight_dtype
         )
+        pipeline("do this to help it instantiate things",num_inference_steps=1)
+        pipeline.safety_checker=None
         unet=pipeline.unet
         pipeline.scheduler = DPOKDDIMScheduler.from_config(pipeline.scheduler.config)
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
@@ -501,6 +503,7 @@ def evaluate_one_sample(
                 #distance_weight=1.0-score_weight
                 #distances=distance_weight*distances
                 #scores=score_weight*scores
+                print("reward function dominant list =",dominant_list)
                 rewards=[]
                 for i in range(len(scores)):
                     if i in dominant_list:
@@ -520,6 +523,7 @@ def evaluate_one_sample(
                     0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
                 ] #by default its normalized to have mean=0, std dev=1
                 dominant_list=get_dominant_list(distances,scores)
+                print("reward function time dominant list =",dominant_list)
                 score_weight=score_weight=float(step)/max_train_steps
                 distance_weight=1.0-score_weight
                 distances=[distance_weight*d for d in distances]
