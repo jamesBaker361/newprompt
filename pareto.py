@@ -2,7 +2,7 @@
 def dominates(sample_values_dominant:list,sample_values_submissive:list)->bool:
     #returns true if sample_values_dominant is dominant over sample_values_submissive
     for metric_dom,metric_sub in zip(sample_values_dominant,sample_values_submissive):
-        if metric_dom<metric_sub:
+        if metric_dom<=metric_sub:
             return False
     return True
 
@@ -17,7 +17,7 @@ def get_dominant_list(*list_args)->list:
     for i in range(num_samples):
         dominant=True
         for j in range(num_samples):
-            if dominates(sample_dict[i], sample_dict[j]) is False:
+            if j!=i and dominates(sample_dict[j], sample_dict[i]) is True:
                 dominant=False
                 break
         if dominant:
