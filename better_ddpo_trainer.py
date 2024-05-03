@@ -478,7 +478,7 @@ class BetterDDPOTrainer(BaseTrainer):
                     num_inference_steps=self.config.sample_num_steps,
                     guidance_scale=self.config.sample_guidance_scale,
                     eta=self.config.sample_eta,
-                    output_type="pt",
+                    output_type="pil",
                 )
 
                 images = sd_output.images
