@@ -39,7 +39,9 @@ from dpok_pipeline import DPOKPipeline
 from dpok_scheduler import DPOKDDIMScheduler
 from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
-    
+from facenet_pytorch import MTCNN
+from elastic_face_iresnet import get_face_embedding,get_iresnet_model
+
 def cos_sim(vector_i,vector_j)->float:
     return np.dot(vector_i,vector_j)/(norm(vector_i)*norm(vector_j))
 
@@ -85,11 +87,19 @@ def evaluate_one_sample(
         save_interval,
         num_samples,
         ratio_clip,
-        samples_per_epoch
+        samples_per_epoch,
+        face_margin:int,
+        face_distance:bool,
+        initial_face_weight:float,
+        final_face_weight:float
 )->dict:
     method_name=method_name.strip()
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
+    mtcnn=MTCNN()
+    mtcnn.eval()
+    iresnet=get_iresnet_model(accelerator.device)
+    face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
     prompt_list= [
         "a photo of a {}",
         "a rendering of a {}",
@@ -213,25 +223,8 @@ def evaluate_one_sample(
 
         if reward_method==REWARD_NORMAL:
             def reward_fn(images, prompts, epoch,prompt_metadata):
-                print("vit_src_image_embedding")
                 vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
-                print("image_vit_embeddings")
                 image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                print('vit_src_image_embedding',vit_src_image_embedding)
-                print('image_vit_embeddings ',image_vit_embeddings)
-                print('embedding',image_vit_embeddings[0])
-                try:
-                    print('vit_src_image_embedding.size()',vit_src_image_embedding.size())
-                except:
-                    pass
-                try:
-                    print('image_vit_embeddings size',image_vit_embeddings.size())
-                except:
-                    pass
-                try:
-                    print('embedding size',image_vit_embeddings[0].size())
-                except:
-                    pass
                 distances=[ cos_sim(vit_src_image_embedding,embedding)
                            for embedding in image_vit_embeddings]
                 return distances, {}
