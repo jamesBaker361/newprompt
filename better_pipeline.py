@@ -9,6 +9,8 @@ class BetterDefaultDDPOStableDiffusionPipeline(DefaultDDPOStableDiffusionPipelin
                  train_unet:bool,
                   use_lora_text_encoder:bool, *args,**kwargs):
         super().__init__(*args, **kwargs)
+        self.sd_pipeline("some things dont initialize correctly if you dont have this dumb step",num_inference_steps=1)
+        self.sd_pipeline.safety_checker=None
         self.sd_pipeline.vae.requires_grad_(False)
         if train_text_encoder and train_text_encoder_embeddings:
             raise Exception("train text encoder OR embedding!!!")
@@ -17,8 +19,8 @@ class BetterDefaultDDPOStableDiffusionPipeline(DefaultDDPOStableDiffusionPipelin
                 self.sd_pipeline.text_encoder.requires_grad_(False)
                 text_encoder_target_modules=["q_proj", "v_proj"]
                 text_encoder_config=LoraConfig(
-                    r=4,
-                    lora_alpha=16,
+                    r=8,
+                    lora_alpha=32,
                     target_modules=text_encoder_target_modules,
                     lora_dropout=0.0
                 )
@@ -33,12 +35,12 @@ class BetterDefaultDDPOStableDiffusionPipeline(DefaultDDPOStableDiffusionPipelin
             if self.use_lora:
                 self.sd_pipeline.unet.requires_grad_(False)
                 lora_config = LoraConfig(
-                    r=4,
-                    lora_alpha=16,
+                    r=8,
+                    lora_alpha=32,
                     init_lora_weights="gaussian",
                     target_modules=["to_k", "to_q", "to_v", "to_out.0"],
                 )
-                self.sd_pipeline.unet.add_adapter(lora_config)
+                self.sd_pipeline.unet=get_peft_model(self.sd_pipeline.unet,lora_config)
                 self.sd_pipeline.unet.print_trainable_parameters()
                 '''
                 # To avoid accelerate unscaling problems in FP16.
@@ -50,4 +52,4 @@ class BetterDefaultDDPOStableDiffusionPipeline(DefaultDDPOStableDiffusionPipelin
                 self.sd_pipeline.unet.requires_grad_(True)
 
     def get_trainable_layers(self):
-        return [p for p in self.sd_pipeline.unet.parameters() if p.require_grad]+[p for p in self.sd_pipeline.text_encoder.parameters() if p.require_grad]
+        return [p for p in self.sd_pipeline.unet.parameters() if p.requires_grad]+[p for p in self.sd_pipeline.text_encoder.parameters() if p.requires_grad]
