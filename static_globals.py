@@ -33,5 +33,6 @@ IMAGES="images" #in text_to_image_lora this is aka pixel_values
 REWARD_NORMAL="reward_normal"
 REWARD_TIME="reward_time"
 REWARD_PARETO="reward_pareto"
+REWARD_PARETO_TIME="reward_pareto_time"
 
-REWARD_TYPE_LIST=[REWARD_NORMAL, REWARD_TIME, REWARD_PARETO]
+REWARD_TYPE_LIST=[REWARD_NORMAL, REWARD_TIME, REWARD_PARETO,REWARD_PARETO_TIME]
