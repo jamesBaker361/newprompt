@@ -53,6 +53,7 @@ parser.add_argument("--batch_size",type=int,default=4)
 parser.add_argument("--train_gradient_accumulation_steps",type=int,default=16)
 parser.add_argument("--reward_method",type=str,default=REWARD_NORMAL, help=f"one of {' '.join(REWARD_TYPE_LIST)}")
 parser.add_argument("--num_epochs",type=int,default=10)
+parser.add_argument("--samples_per_epoch",type=int,default=64)
 parser.add_argument(
     "--p_step",
     type=int,
@@ -80,7 +81,7 @@ parser.add_argument(
 parser.add_argument(
     "--g_batch_size",
     type=int,
-    default=6,
+    default=1,
     help="batch size of prompts for sampling per gpu",
 )
 parser.add_argument(
@@ -96,7 +97,7 @@ parser.add_argument(
     "--buffer_size", type=int, default=1000, help="size of replay buffer"
 )
 parser.add_argument(
-    "--v_batch_size", type=int, default=256, 
+    "--v_batch_size", type=int, default=16, 
     help="batch size for value function update per gpu, no gradient accumulation"  # pylint: disable=line-too-long
 )
 parser.add_argument(
@@ -121,6 +122,24 @@ parser.add_argument(
 parser.add_argument(
     "--clip_norm", type=float, default=0.1, help="norm for gradient clipping"
 )
+parser.add_argument("--ratio_clip",type=int,default=0.0001)
+'''
+        use_img_reward:bool,
+        initial_img_reward_weight:float,
+        final_img_reward_weight:float,
+        use_vit_distance:bool,
+        initial_vit_weight:float,
+        final_vit_weight:float'''
+parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
+parser.add_argument("--use_face_distance",action="store_true",help="whether to use face embedding distance")
+parser.add_argument("--initial_face_weight",type=float,default=0.333333,help="inital relative weight of face embedding vs VIT embedding ()")
+parser.add_argument("--final_face_weight",type=float,default=0.333333,help="initial relative weight of face embedding vs VIT embedding ()")
+parser.add_argument("--use_img_reward",action="store_true")
+parser.add_argument("--initial_img_reward_weight",type=float,default=0.333333)
+parser.add_argument("--final_img_reward_weight",type=float,default=0.333333)
+parser.add_argument("--use_vit_distance",action="store_true")
+parser.add_argument("--initial_vit_weight",type=float,default=0.333333)
+parser.add_argument("--final_vit_weight",type=float,default=0.333333)
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -215,7 +234,19 @@ def main(args):
                                                                 args.v_lr,
                                                                 args.v_step,
                                                                 args.save_interval,
-                                                                args.num_samples
+                                                                args.num_samples,
+                                                                args.ratio_clip,
+                                                                args.samples_per_epoch,
+                                                                args.face_margin,
+                                                                args.use_face_distance,
+                                                                args.initial_face_weight,
+                                                                args.final_face_weight,
+                                                                args.use_img_reward,
+                                                                args.initial_img_reward_weight,
+                                                                args.final_img_reward_weight,
+                                                                args.use_vit_distance,
+                                                                args.initial_vit_weight,
+                                                                args.final_vit_weight
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
