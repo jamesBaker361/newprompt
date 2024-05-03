@@ -49,15 +49,20 @@ def get_init_dist(last_hidden_states)->float:
 
     
 
-def get_hidden_states(image_list:list, vit_processor: ViTImageProcessor, vit_model:ViTModel):
+def get_hidden_states(image_list:list, vit_processor: ViTImageProcessor, vit_model:ViTModel,return_numpy:bool=True):
+    print("print numpy ",return_numpy)
     vit_inputs = vit_processor(images=image_list, return_tensors="pt")
     #print("inputs :)")
     vit_inputs['pixel_values']=vit_inputs['pixel_values'].to(vit_model.device)
     vit_outputs=vit_model(**vit_inputs)
     #print("outputs :))")
     last_hidden_states = vit_outputs.last_hidden_state.detach()
-    #print("last hidden :)))")
-    last_hidden_states=last_hidden_states.cpu().numpy().reshape(len(image_list),-1)
+    print("last hidden states",last_hidden_states.size())
+    if return_numpy:
+        last_hidden_states=last_hidden_states.cpu().numpy().reshape(len(image_list),-1)
+    else:
+        last_hidden_states=last_hidden_states.reshape(len(image_list),-1)
+    print("last hidden states",last_hidden_states)
     return last_hidden_states
 
 def get_best_cluster_kmeans(
