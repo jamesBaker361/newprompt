@@ -89,9 +89,15 @@ def evaluate_one_sample(
         ratio_clip,
         samples_per_epoch,
         face_margin:int,
-        face_distance:bool,
+        use_face_distance:bool,
         initial_face_weight:float,
-        final_face_weight:float
+        final_face_weight:float,
+        use_img_reward:bool,
+        initial_img_reward_weight:float,
+        final_img_reward_weight:float,
+        use_vit_distance:bool,
+        initial_vit_weight:float,
+        final_vit_weight:float
 )->dict:
     method_name=method_name.strip()
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -99,7 +105,7 @@ def evaluate_one_sample(
     mtcnn=MTCNN()
     mtcnn.eval()
     iresnet=get_iresnet_model(accelerator.device)
-    face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
+    src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
     prompt_list= [
         "a photo of a {}",
         "a rendering of a {}",
@@ -223,11 +229,35 @@ def evaluate_one_sample(
 
         if reward_method==REWARD_NORMAL:
             def reward_fn(images, prompts, epoch,prompt_metadata):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                distances=[ cos_sim(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                return distances, {}
+                print(images)
+                distances=[0.0 for _ in images]
+                face_distances=[0.0 for _ in images]
+                rewards=[0.0 for _ in images]
+                scores=[0.0 for _ in images]
+                if use_vit_distance:
+                    vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
+                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                            for embedding in image_vit_embeddings]
+                if use_face_distance:
+                    face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
+                    try:
+                        image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                        face_distances=[
+                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            for face_embedding in  image_face_embeddings
+                        ]
+                    except (RuntimeError,TypeError):
+                        pass
+                if use_img_reward:
+                    img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * (float(epoch)/num_epochs))
+                    scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)]
+                    scores=[s*img_reward_weight for s in scores]
+                rewards=[
+                    d+f+s for d,f,s in zip(distances,face_distances,scores)
+                ]
+                return rewards, {}
         elif reward_method==REWARD_TIME:
             def reward_fn(images, prompts, epoch,prompt_metadata):
                 vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)[0]
@@ -241,29 +271,52 @@ def evaluate_one_sample(
                 score_weight=float(epoch)/num_epochs
                 distance_weight=1.0-score_weight
                 distances=[distance_weight*d for d in distances]
+                if use_face_distance:
+                    face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
+                    vit_weight=1.0-face_weight
+                    image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                    face_distances=[
+                        cos_sim(src_face_embedding,face_embedding)
+                        for face_embedding in  image_face_embeddings
+                    ]
+                    distances=[
+                        face_weight*fd+vit_weight*d for fd,d in zip(face_distances,distances)
+                    ]
                 scores=[score_weight*s for s in scores]
                 return [d+s for d,s in zip(distances,scores)],{}
         elif reward_method==REWARD_PARETO: #todo
             def reward_fn(images, prompts, epoch,prompt_metadata):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)[0]
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
-                distances=[ cos_sim(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                images=pipeline.sd_pipeline.image_processor.postprocess(images)
-                scores=[
-                    0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ] #by default its normalized to have mean=0, std dev=1
-                dominant_list=get_dominant_list(distances,scores)
-                #score_weight=float(epoch)/num_epochs
-                #distance_weight=1.0-score_weight
-                #distances=distance_weight*distances
-                #scores=score_weight*scores
-                rewards=[]
+                distances=[0.0 for _ in images]
+                face_distances=[0.0 for _ in images]
+                rewards=[0.0 for _ in images]
+                scores=[0.0 for _ in images]
+                if use_vit_distance:
+                    vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
+                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                            for embedding in image_vit_embeddings]
+                if use_face_distance:
+                    face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
+                    try:
+                        image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                        face_distances=[
+                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            for face_embedding in  image_face_embeddings
+                        ]
+                    except (RuntimeError,TypeError):
+                        pass
+                if use_img_reward:
+                    img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * (float(epoch)/num_epochs))
+                    scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)]
+                    scores=[s*img_reward_weight for s in scores]
+                dominant_list=get_dominant_list(distances,scores,face_distances)
+                rewards=[
+                    d+f+s for d,f,s in zip(distances,face_distances,scores)
+                ]
                 for i in range(len(scores)):
-                    if i in dominant_list:
-                        rewards.append(scores[i]+distances[i])
-                    else:
-                        rewards.append(0.0)
+                    if i not in dominant_list:
+                        rewards[i]=0.0
                 return rewards,{}
         elif reward_method==REWARD_PARETO_TIME:
             def reward_fn(images, prompts, epoch,prompt_metadata):
@@ -442,29 +495,37 @@ def evaluate_one_sample(
 
         if reward_method==REWARD_NORMAL:
             def reward_fn(images, prompts, step):
-                print("vit_src_image_embedding")
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
-                print("image_vit_embeddings")
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                print('vit_src_image_embedding',vit_src_image_embedding)
-                print('image_vit_embeddings ',image_vit_embeddings)
-                print('embedding',image_vit_embeddings[0])
-                try:
-                    print('vit_src_image_embedding.size()',vit_src_image_embedding.size())
-                except:
-                    pass
-                try:
-                    print('image_vit_embeddings size',image_vit_embeddings.size())
-                except:
-                    pass
-                try:
-                    print('embedding size',image_vit_embeddings[0].size())
-                except:
-                    pass
-                distances=[ cos(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
+                print(images)
+                print(f"steps: {step}/{max_train_steps}")
+                distances=[0.0 for _ in images]
+                face_distances=[0.0 for _ in images]
+                rewards=[0.0 for _ in images]
+                scores=[0.0 for _ in images]
+                if use_vit_distance:
+                    vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(step)/max_train_steps))
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
+                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                            for embedding in image_vit_embeddings]
+                if use_face_distance:
+                    face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(step)/max_train_steps))
+                    try:
+                        image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                        face_distances=[
+                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            for face_embedding in  image_face_embeddings
+                        ]
+                    except (RuntimeError,TypeError):
+                        pass
+                if use_img_reward:
+                    img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * (float(step)/max_train_steps))
+                    scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)]
+                    scores=[s*img_reward_weight for s in scores]
+                rewards=[
+                    d+f+s for d,f,s in zip(distances,face_distances,scores)
+                ]
                 txt_emb=get_text_emb(prompts)
-                return torch.stack(distances), txt_emb
+                return torch.tensor(rewards), txt_emb
         elif reward_method==REWARD_TIME:
             def reward_fn(images, prompts, step):
                 vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
@@ -483,28 +544,39 @@ def evaluate_one_sample(
                 return torch.stack([d+s for d,s in zip(distances,scores)]),txt_emb
         elif reward_method==REWARD_PARETO: #todo
             def reward_fn(images, prompts, step):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                distances=[ cos(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                #images=pipeline.image_processor.postprocess(torch.tensor(images))
-                scores=[
-                    0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ] #by default its normalized to have mean=0, std dev=1
-                dominant_list=get_dominant_list(distances,scores)
-                #score_weight=float(epoch)/num_epochs
-                #distance_weight=1.0-score_weight
-                #distances=distance_weight*distances
-                #scores=score_weight*scores
-                print("reward function dominant list =",dominant_list)
-                rewards=[]
+                distances=[0.0 for _ in images]
+                face_distances=[0.0 for _ in images]
+                rewards=[0.0 for _ in images]
+                scores=[0.0 for _ in images]
+                if use_vit_distance:
+                    vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(step)/max_train_steps))
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
+                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                            for embedding in image_vit_embeddings]
+                if use_face_distance:
+                    face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(step)/max_train_steps))
+                    try:
+                        image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                        face_distances=[
+                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            for face_embedding in  image_face_embeddings
+                        ]
+                    except (RuntimeError,TypeError):
+                        pass
+                if use_img_reward:
+                    img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * (float(step)/max_train_steps))
+                    scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)]
+                    scores=[s*img_reward_weight for s in scores]
+                dominant_list=get_dominant_list(distances,scores,face_distances)
+                rewards=[
+                    d+f+s for d,f,s in zip(distances,face_distances,scores)
+                ]
                 for i in range(len(scores)):
-                    if i in dominant_list:
-                        rewards.append(scores[i]+distances[i])
-                    else:
-                        rewards.append(0.0)
+                    if i not in dominant_list:
+                        rewards[i]=0.0
                 txt_emb=get_text_emb(prompts)
-                return torch.stack(rewards),txt_emb
+                return torch.tensor(rewards),txt_emb
         elif reward_method==REWARD_PARETO_TIME:
             def reward_fn(images, prompts, step):
                 vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
