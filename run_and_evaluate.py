@@ -568,7 +568,7 @@ def evaluate_one_sample(
             value_optimizer.zero_grad()
             if accelerator.is_main_process:
                 print("value_loss", total_val_loss)
-                accelerator.log({"value_loss": total_val_loss}, step=count)
+                accelerator.log({"value_loss": total_val_loss}, )
             del total_val_loss
             torch.cuda.empty_cache()
 
@@ -623,15 +623,13 @@ def evaluate_one_sample(
                         print(f"count: [{count} / {max_train_steps // p_step}]")
                         print("train_reward", torch.mean(state_dict["final_reward"]).item())
                         accelerator.log(
-                        {"train_reward": torch.mean(state_dict["final_reward"]).item()},
-                        step=count,
-                        )
+                        {"train_reward": torch.mean(state_dict["final_reward"]).item()})
                         print("grad norm", tpfdata.tot_grad_norm, "ratio", tpfdata.tot_ratio)
                         print("kl", tpfdata.tot_kl, "p_loss", tpfdata.tot_p_loss)
-                        accelerator.log({"grad norm": tpfdata.tot_grad_norm}, step=count)
-                        accelerator.log({"ratio": tpfdata.tot_ratio}, step=count)
-                        accelerator.log({"kl": tpfdata.tot_kl}, step=count)
-                        accelerator.log({"p_loss": tpfdata.tot_p_loss}, step=count)
+                        accelerator.log({"grad norm": tpfdata.tot_grad_norm}, )
+                        accelerator.log({"ratio": tpfdata.tot_ratio}, )
+                        accelerator.log({"kl": tpfdata.tot_kl}, )
+                        accelerator.log({"p_loss": tpfdata.tot_p_loss}, )
                     torch.cuda.empty_cache()
         evaluation_image_list=[
             pipeline(evaluation_prompt.format(entity_name),
