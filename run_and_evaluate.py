@@ -103,8 +103,10 @@ def evaluate_one_sample(
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
     mtcnn=MTCNN()
+    mtcnn.to(accelerator.device)
     mtcnn.eval()
     iresnet=get_iresnet_model(accelerator.device)
+    mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
     prompt_list= [
         "a photo of a {}",
