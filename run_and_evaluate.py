@@ -43,7 +43,8 @@ from facenet_pytorch import MTCNN
 from elastic_face_iresnet import get_face_embedding,get_iresnet_model
 
 def cos_sim(vector_i,vector_j)->float:
-    return np.dot(vector_i,vector_j)/(norm(vector_i)*norm(vector_j))
+    cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+    return cos(vector_i,vector_j) *0.5 +0.5
 
 def evaluate_one_sample(
         method_name:str,
@@ -102,8 +103,7 @@ def evaluate_one_sample(
     method_name=method_name.strip()
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
-    mtcnn=MTCNN()
-    mtcnn.to(accelerator.device)
+    mtcnn=MTCNN(device=accelerator.device)
     mtcnn.eval()
     iresnet=get_iresnet_model(accelerator.device)
     mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
