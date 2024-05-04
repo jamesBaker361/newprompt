@@ -239,7 +239,8 @@ def get_iresnet_model(
     return model
 
 def preprocess_iresnet(
-  images:list
+  images:list,
+  device:str
 )->torch.Tensor:
     return_images=[]
     composition=Compose([
@@ -262,7 +263,7 @@ def preprocess_iresnet(
     max_value=torch.max(images[0])
     min_value=torch.min(images[0])
     print('processed min max',min_value,max_value)
-    return torch.stack(images)
+    return torch.stack(images).to(device)
 
 def get_face_embedding(images:list,mtcnn:MTCNN, iresnet:IResNet,margin:int)->torch.tensor:
     face_tensors=[]
@@ -271,7 +272,7 @@ def get_face_embedding(images:list,mtcnn:MTCNN, iresnet:IResNet,margin:int)->tor
         extracted_face_tensor=extract_face(img,boxes[0],112,margin)
         face_tensors.append(extracted_face_tensor)
 
-    iresnet_input=preprocess_iresnet(face_tensors)
+    iresnet_input=preprocess_iresnet(face_tensors,mtcnn.device)
     return iresnet(iresnet_input)
 
 
