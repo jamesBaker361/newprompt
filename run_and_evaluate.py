@@ -42,9 +42,15 @@ from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_valu
 from facenet_pytorch import MTCNN
 from elastic_face_iresnet import get_face_embedding,get_iresnet_model
 
-def cos_sim(vector_i,vector_j)->float:
+def cos_sim(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-    return cos(vector_i,vector_j) *0.5 +0.5
+    try:
+        result= cos(vector_i,vector_j) *0.5 +0.5
+    except TypeError:
+        result= cos(torch.tensor(vector_i),torch.tensor(vector_j)) *0.5 +0.5
+    if return_np:
+        return result.cpu().numpy()
+    return result
 
 def evaluate_one_sample(
         method_name:str,
@@ -238,7 +244,7 @@ def evaluate_one_sample(
                 scores=[0.0 for _ in images]
                 if use_vit_distance:
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
-                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
                     distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
@@ -294,7 +300,7 @@ def evaluate_one_sample(
                 scores=[0.0 for _ in images]
                 if use_vit_distance:
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
-                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
                     distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
@@ -505,7 +511,7 @@ def evaluate_one_sample(
                 scores=[0.0 for _ in images]
                 if use_vit_distance:
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(step)/max_train_steps))
-                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
                     distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
@@ -552,7 +558,7 @@ def evaluate_one_sample(
                 scores=[0.0 for _ in images]
                 if use_vit_distance:
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(step)/max_train_steps))
-                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)
+                    vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
                     distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
@@ -811,12 +817,12 @@ def evaluate_one_sample(
     for i in range(len(image_embed_list)):
         image_embed=image_embed_list[i]
         text_embed=text_embed_list[i]
-        target_similarity_list.append(cos_sim(image_embed,src_image_embed))
-        prompt_similarity_list.append(cos_sim(image_embed, text_embed))
+        target_similarity_list.append(cos_sim(image_embed,src_image_embed,True))
+        prompt_similarity_list.append(cos_sim(image_embed, text_embed,True))
         for j in range(i+1, len(image_embed_list)):
             #print(i,j)
             vector_j=image_embed_list[j]
-            sim=cos_sim(image_embed,vector_j)
+            sim=cos_sim(image_embed,vector_j,True)
             identity_consistency_list.append(sim)
 
 
