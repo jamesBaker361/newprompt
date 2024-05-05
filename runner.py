@@ -140,6 +140,7 @@ parser.add_argument("--final_img_reward_weight",type=float,default=0.333333)
 parser.add_argument("--use_vit_distance",action="store_true")
 parser.add_argument("--initial_vit_weight",type=float,default=0.333333)
 parser.add_argument("--final_vit_weight",type=float,default=0.333333)
+parser.add_argument("--project_name",type=str,default="one_shot")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -159,7 +160,7 @@ parser.add_argument("--final_vit_weight",type=float,default=0.333333)
 
 def main(args):
     accelerator=Accelerator(log_with="wandb")
-    accelerator.init_trackers(project_name="one_shot",config=vars(args))
+    accelerator.init_trackers(project_name=args.project_name,config=vars(args))
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
     aggregate_dict={
