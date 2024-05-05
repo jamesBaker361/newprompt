@@ -141,6 +141,10 @@ parser.add_argument("--use_vit_distance",action="store_true")
 parser.add_argument("--initial_vit_weight",type=float,default=0.333333)
 parser.add_argument("--final_vit_weight",type=float,default=0.333333)
 parser.add_argument("--project_name",type=str,default="one_shot")
+parser.add_argument("--subject_key",type=str,default="subject")
+parser.add_argument("--label_key",type=str,default="label")
+parser.add_argument("--image_key",type=str,default="splash")
+parser.add_argument("--prompt_key",type=str,default="optimal_prompt")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -193,10 +197,10 @@ def main(args):
         if j>args.limit:
             print("reached limit")
             break
-        subject=row["subject"]
-        label=row["label"]
-        src_image=row["splash"]
-        text_prompt=row["optimal_prompt"]
+        subject=row[args.subject_key]
+        label=row[args.label_key]
+        src_image=row[args.image_key]
+        text_prompt=row[args.prompt_key]
         metric_dict,evaluation_image_list=evaluate_one_sample(args.method_name,
                                                               src_image,
                                                               text_prompt,
