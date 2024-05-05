@@ -159,7 +159,7 @@ parser.add_argument("--final_vit_weight",type=float,default=0.333333)
 
 def main(args):
     accelerator=Accelerator(log_with="wandb")
-    accelerator.init_trackers(project_name="one_shot")
+    accelerator.init_trackers(project_name="one_shot",config=vars(args))
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
     aggregate_dict={
@@ -260,6 +260,12 @@ def main(args):
         print(f"after {j} samples:")
         for metric,value_list in aggregate_dict.items():
             print(f"\t{metric} {np.mean(value_list)}")
+            accelerator.log({
+                f"{metric}":np.mean(value_list)
+            })
+            accelerator.log({
+                f"{args.method_name}_{metric}":np.mean(value_list)
+            })
     columns=METRIC_LIST
     data=np.transpose([v for v in aggregate_dict.values()])
     accelerator.get_tracker("wandb").log({
