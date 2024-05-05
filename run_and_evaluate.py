@@ -266,32 +266,6 @@ def evaluate_one_sample(
                     d+f+s for d,f,s in zip(distances,face_distances,scores)
                 ]
                 return rewards, {}
-        elif reward_method==REWARD_TIME:
-            def reward_fn(images, prompts, epoch,prompt_metadata):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)[0]
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
-                distances=[ cos_sim(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                images=pipeline.sd_pipeline.image_processor.postprocess(images)
-                scores=[
-                    0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ] #by default its normalized to have mean=0, std dev=1
-                score_weight=float(epoch)/num_epochs
-                distance_weight=1.0-score_weight
-                distances=[distance_weight*d for d in distances]
-                if use_face_distance:
-                    face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
-                    vit_weight=1.0-face_weight
-                    image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
-                    face_distances=[
-                        cos_sim(src_face_embedding,face_embedding)
-                        for face_embedding in  image_face_embeddings
-                    ]
-                    distances=[
-                        face_weight*fd+vit_weight*d for fd,d in zip(face_distances,distances)
-                    ]
-                scores=[score_weight*s for s in scores]
-                return [d+s for d,s in zip(distances,scores)],{}
         elif reward_method==REWARD_PARETO: #todo
             def reward_fn(images, prompts, epoch,prompt_metadata):
                 distances=[0.0 for _ in images]
@@ -325,28 +299,6 @@ def evaluate_one_sample(
                 for i in range(len(scores)):
                     if i not in dominant_list:
                         rewards[i]=0.0
-                return rewards,{}
-        elif reward_method==REWARD_PARETO_TIME:
-            def reward_fn(images, prompts, epoch,prompt_metadata):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model)[0]
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model)
-                distances=[ cos_sim(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                images=pipeline.sd_pipeline.image_processor.postprocess(images)
-                scores=[
-                    0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ] #by default its normalized to have mean=0, std dev=1
-                dominant_list=get_dominant_list(distances,scores)
-                score_weight=float(epoch)/num_epochs
-                distance_weight=1.0-score_weight
-                distances=[distance_weight*d for d in distances]
-                scores=[score_weight*s for s in scores]
-                rewards=[]
-                for i in range(len(scores)):
-                    if i in dominant_list:
-                        rewards.append(scores[i]+distances[i])
-                    else:
-                        rewards.append(0.0)
                 return rewards,{}
 
 
@@ -534,22 +486,6 @@ def evaluate_one_sample(
                 ]
                 txt_emb=get_text_emb(prompts)
                 return torch.tensor(rewards), txt_emb
-        elif reward_method==REWARD_TIME:
-            def reward_fn(images, prompts, step):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                distances=[ cos(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                #images=pipeline.image_processor.postprocess(torch.tensor(images))
-                scores=[
-                    0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ] #by default its normalized to have mean=0, std dev=1
-                score_weight=float(step)/max_train_steps
-                distance_weight=1.0-score_weight
-                distances=[distance_weight*d for d in distances]
-                scores=[score_weight*s for s in scores]
-                txt_emb=get_text_emb(prompts)
-                return torch.stack([d+s for d,s in zip(distances,scores)]),txt_emb
         elif reward_method==REWARD_PARETO: #todo
             def reward_fn(images, prompts, step):
                 distances=[0.0 for _ in images]
@@ -585,30 +521,6 @@ def evaluate_one_sample(
                         rewards[i]=0.0
                 txt_emb=get_text_emb(prompts)
                 return torch.tensor(rewards),txt_emb
-        elif reward_method==REWARD_PARETO_TIME:
-            def reward_fn(images, prompts, step):
-                vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
-                image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                distances=[ cos(vit_src_image_embedding,embedding)
-                           for embedding in image_vit_embeddings]
-                #images=pipeline.image_processor.postprocess(torch.tensor(images))
-                scores=[
-                    0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)
-                ] #by default its normalized to have mean=0, std dev=1
-                dominant_list=get_dominant_list(distances,scores)
-                print("reward function time dominant list =",dominant_list)
-                score_weight=score_weight=float(step)/max_train_steps
-                distance_weight=1.0-score_weight
-                distances=[distance_weight*d for d in distances]
-                scores=[score_weight*s for s in scores]
-                rewards=[]
-                for i in range(len(scores)):
-                    if i in dominant_list:
-                        rewards.append(scores[i]+distances[i])
-                    else:
-                        rewards.append(0.0)
-                txt_emb=get_text_emb(prompts)
-                return torch.stack(rewards),txt_emb
         trainable_list=[]
         if train_text_encoder or train_text_encoder_embeddings:
             trainable_list.append(text_encoder)
