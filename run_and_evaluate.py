@@ -16,6 +16,7 @@ torch.hub.set_dir("/scratch/jlb638/torch_hub_cache")
 from diffusers.pipelines import BlipDiffusionPipeline
 from diffusers import UNet2DConditionModel
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, StableDiffusionPipeline
+from transformers import Blip2Processor, Blip2ForConditionalGeneration
 from PIL import Image
 import ImageReward as image_reward
 reward_cache="/scratch/jlb638/ImageReward"
@@ -114,6 +115,19 @@ def evaluate_one_sample(
     iresnet=get_iresnet_model(accelerator.device)
     mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
+
+    blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+    blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
+
+    blip_model.to(accelerator.device)
+
+    blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
+
+    caption_inputs = blip_processor(src_image, "", return_tensors="pt").to(accelerator.device)
+    caption_out=blip_model.generate(**caption_inputs)
+    caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
+    print("blip caption ",caption)
+
     prompt_list= [
         "a photo of a {}",
         "a rendering of a {}",
@@ -744,6 +758,9 @@ def evaluate_one_sample(
     #for evaluation_image,evaluation_prompt in zip(evaluation_image_list, evaluation_prompt_list):
     metric_dict[IMAGE_REWARD]=np.mean(
         [ir_model.score(evaluation_prompt.format(subject),evaluation_image) for evaluation_prompt,evaluation_image in zip(evaluation_prompt_list, evaluation_image_list) ]
+    )
+    metric_dict[IMAGE_REWARD_CAPTION]=np.mean(
+        [ir_model.score(evaluation_prompt.format(caption),evaluation_image) for evaluation_prompt,evaluation_image in zip(evaluation_prompt_list, evaluation_image_list) ]
     )
     aesthetic_scorer=get_aesthetic_scorer()
     metric_dict[AESTHETIC_SCORE]=np.mean(
