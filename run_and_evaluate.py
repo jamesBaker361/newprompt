@@ -43,7 +43,7 @@ from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_valu
 from facenet_pytorch import MTCNN
 from elastic_face_iresnet import get_face_embedding,get_iresnet_model
 
-def cos_sim(vector_i,vector_j,return_np=False):
+def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
     try:
         result= cos(vector_i,vector_j) *0.5 +0.5
@@ -260,14 +260,14 @@ def evaluate_one_sample(
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
                     vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                    distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
                 if use_face_distance:
                     face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
                     try:
                         image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
                         face_distances=[
-                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
                             for face_embedding in  image_face_embeddings
                         ]
                     except (RuntimeError,TypeError):
@@ -290,14 +290,14 @@ def evaluate_one_sample(
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
                     vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                    distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
                 if use_face_distance:
                     face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
                     try:
                         image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
                         face_distances=[
-                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
                             for face_embedding in  image_face_embeddings
                         ]
                     except (RuntimeError,TypeError):
@@ -479,14 +479,14 @@ def evaluate_one_sample(
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(step)/max_train_steps))
                     vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                    distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
                 if use_face_distance:
                     face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(step)/max_train_steps))
                     try:
                         image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
                         face_distances=[
-                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
                             for face_embedding in  image_face_embeddings
                         ]
                     except (RuntimeError,TypeError):
@@ -510,14 +510,14 @@ def evaluate_one_sample(
                     vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(step)/max_train_steps))
                     vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
                     image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
-                    distances=[ vit_weight * cos_sim(vit_src_image_embedding,embedding)
+                    distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
                             for embedding in image_vit_embeddings]
                 if use_face_distance:
                     face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(step)/max_train_steps))
                     try:
                         image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
                         face_distances=[
-                            face_weight* cos_sim(src_face_embedding,face_embedding)
+                            face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
                             for face_embedding in  image_face_embeddings
                         ]
                     except (RuntimeError,TypeError):
@@ -743,12 +743,12 @@ def evaluate_one_sample(
     for i in range(len(image_embed_list)):
         image_embed=image_embed_list[i]
         text_embed=text_embed_list[i]
-        target_similarity_list.append(cos_sim(image_embed,src_image_embed,True))
-        prompt_similarity_list.append(cos_sim(image_embed, text_embed,True))
+        target_similarity_list.append(cos_sim_rescaled(image_embed,src_image_embed,True))
+        prompt_similarity_list.append(cos_sim_rescaled(image_embed, text_embed,True))
         for j in range(i+1, len(image_embed_list)):
             #print(i,j)
             vector_j=image_embed_list[j]
-            sim=cos_sim(image_embed,vector_j,True)
+            sim=cos_sim_rescaled(image_embed,vector_j,True)
             identity_consistency_list.append(sim)
 
 
