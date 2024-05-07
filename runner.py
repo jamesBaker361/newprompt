@@ -260,17 +260,19 @@ def main(args):
             accelerator.log({
                 f"{label}/{args.method_name}_{i}":wandb.Image(path)
             })
+        print(f"after {j} samples:")
         for metric,value in metric_dict.items():
             aggregate_dict[metric].append(value)
-        print(f"after {j} samples:")
-        for metric,value_list in aggregate_dict.items():
-            print(f"\t{metric} {np.mean(value_list)}")
-            accelerator.log({
-                f"{metric}":np.mean(value_list)
-            })
-            accelerator.log({
-                f"{args.method_name}_{metric}":np.mean(value_list)
-            })
+            print(f"\t{metric} : {value}")
+    print(f"after {j} samples:")
+    for metric,value_list in aggregate_dict.items():
+        print(f"\t{metric} {np.mean(value_list)}")
+        accelerator.log({
+            f"{metric}":np.mean(value_list)
+        })
+        accelerator.log({
+            f"{args.method_name}_{metric}":np.mean(value_list)
+        })
     columns=METRIC_LIST
     data=np.transpose([v for v in aggregate_dict.values()])
     accelerator.get_tracker("wandb").log({
