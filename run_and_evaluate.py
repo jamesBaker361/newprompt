@@ -192,7 +192,7 @@ def evaluate_one_sample(
                 pass
         if use_img_reward:
             img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
-            scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
+            scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/4.0 for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
             scores=[s*img_reward_weight for s in scores]
         rewards=[
             d+f+s+vs+vc for d,f,s,vs,vc in zip(distances,face_distances,scores,style_distances, content_distances)
