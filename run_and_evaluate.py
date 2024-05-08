@@ -18,6 +18,7 @@ from diffusers import UNet2DConditionModel
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, StableDiffusionPipeline
 from transformers import Blip2Processor, Blip2ForConditionalGeneration
 from PIL import Image
+import wandb
 import ImageReward as image_reward
 reward_cache="/scratch/jlb638/ImageReward"
 from static_globals import *
@@ -122,8 +123,10 @@ def evaluate_one_sample(
         final_vit_style_weight:float,
         use_vit_content:bool,
         initial_vit_content_weight:float,
-        final_vit_content_weight:float
+        final_vit_content_weight:float,
+        image_dir:str,
 )->dict:
+    os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension(src_image)
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -585,6 +588,18 @@ def evaluate_one_sample(
                         accelerator.log({"kl": tpfdata.tot_kl}, )
                         accelerator.log({"p_loss": tpfdata.tot_p_loss}, )
                     torch.cuda.empty_cache()
+            validation_prompt_list=[entity_name]
+            generator=torch.Generator(device=accelerator.device).manual_seed(123)
+            validation_image_list=[pipeline(validation_prompt,num_inference_steps=num_inference_steps,
+                    negative_prompt=NEGATIVE,
+                    generator=generator,
+                    safety_checker=None).images[0] for validation_prompt in validation_prompt_list ]
+            for i,image in enumerate(validation_image_list):
+                path=f"args.image_dir/{i}.png"
+                image.save(path)
+                accelerator.log({
+                    f"validation_img_dpok":wandb.Image(path)
+                })
         evaluation_image_list=[
             pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,
