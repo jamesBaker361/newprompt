@@ -106,7 +106,13 @@ def evaluate_one_sample(
         final_img_reward_weight:float,
         use_vit_distance:bool,
         initial_vit_weight:float,
-        final_vit_weight:float
+        final_vit_weight:float,
+        use_vit_style:bool,
+        initial_vit_style_weight:float,
+        final_vit_style_weight:float,
+        use_vit_content:bool,
+        initial_vit_content_weight:float,
+        final_vit_content_weight:float
 )->dict:
     method_name=method_name.strip()
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -137,6 +143,8 @@ def evaluate_one_sample(
         face_distances=[0.0 for _ in images]
         rewards=[0.0 for _ in images]
         scores=[0.0 for _ in images]
+        style_distances=[0.0 for _ in images]
+        content_distances=[0.0 for _ in images]
         if use_vit_distance:
             vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
             vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
@@ -458,12 +466,13 @@ def evaluate_one_sample(
                 num_samples,
                 accelerator
             )
-            _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,count) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
+            _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,count,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
             _trim_buffer(buffer_size, state_dict)
 
             #value learning
             value_optimizer.zero_grad()
             total_val_loss=0.0
+            v_batch_size=min(v_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
             for _v in range(v_step):
                 if _v< v_step-1:
                     with accelerator.no_sync(value_function):
@@ -480,6 +489,7 @@ def evaluate_one_sample(
 
             #poloucy learning
             tpfdata = TrainPolicyFuncData()
+            p_batch_size=min(p_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
             for _p in range(p_step):
                 optimizer.zero_grad()
                 for accum_step in range(train_gradient_accumulation_steps):

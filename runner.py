@@ -134,7 +134,7 @@ parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
 metrics=["face","img_reward","vit","vit_style","vit_content"]
 for metric in metrics:
-    parser.add_argument(f"--use_{metric}_distance",action="store_true")
+    parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=1.0/len(metrics))
     parser.add_argument(f"--final_{metric}_weight",type=float,default=1.0/len(metrics))
 parser.add_argument("--project_name",type=str,default="one_shot")
@@ -240,15 +240,21 @@ def main(args):
                                                                 args.ratio_clip,
                                                                 args.samples_per_epoch,
                                                                 args.face_margin,
-                                                                args.use_face_distance,
+                                                                args.use_face,
                                                                 args.initial_face_weight,
                                                                 args.final_face_weight,
                                                                 args.use_img_reward,
                                                                 args.initial_img_reward_weight,
                                                                 args.final_img_reward_weight,
-                                                                args.use_vit_distance,
+                                                                args.use_vit,
                                                                 args.initial_vit_weight,
-                                                                args.final_vit_weight
+                                                                args.final_vit_weight,
+                                                                args.use_vit_style,
+                                                                args.initial_vit_style_weight,
+                                                                args.final_vit_style_weight,
+                                                                args.use_vit_content,
+                                                                args.initial_vit_content_weight,
+                                                                args.final_vit_content_weight
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
