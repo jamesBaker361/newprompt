@@ -132,15 +132,11 @@ parser.add_argument("--ratio_clip",type=int,default=0.0001)
         initial_vit_weight:float,
         final_vit_weight:float'''
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-parser.add_argument("--use_face_distance",action="store_true",help="whether to use face embedding distance")
-parser.add_argument("--initial_face_weight",type=float,default=0.333333,help="inital relative weight of face embedding vs VIT embedding ()")
-parser.add_argument("--final_face_weight",type=float,default=0.333333,help="initial relative weight of face embedding vs VIT embedding ()")
-parser.add_argument("--use_img_reward",action="store_true")
-parser.add_argument("--initial_img_reward_weight",type=float,default=0.333333)
-parser.add_argument("--final_img_reward_weight",type=float,default=0.333333)
-parser.add_argument("--use_vit_distance",action="store_true")
-parser.add_argument("--initial_vit_weight",type=float,default=0.333333)
-parser.add_argument("--final_vit_weight",type=float,default=0.333333)
+metrics=["face","img_reward","vit","vit_style","vit_content"]
+for metric in metrics:
+    parser.add_argument(f"--use_{metric}_distance",action="store_true")
+    parser.add_argument(f"--initial_{metric}_weight",type=float,default=1.0/len(metrics))
+    parser.add_argument(f"--final_{metric}_weight",type=float,default=1.0/len(metrics))
 parser.add_argument("--project_name",type=str,default="one_shot")
 parser.add_argument("--subject_key",type=str,default="subject")
 parser.add_argument("--label_key",type=str,default="label")
