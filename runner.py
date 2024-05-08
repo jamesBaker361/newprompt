@@ -26,6 +26,7 @@ from datasets import load_dataset
 import wandb
 from gpu import print_details
 import gc
+from experiment_helpers.static_globals import METRIC_LIST
 
 parser=argparse.ArgumentParser()
 
@@ -273,11 +274,6 @@ def main(args):
         accelerator.log({
             f"{args.method_name}_{metric}":np.mean(value_list)
         })
-    columns=METRIC_LIST
-    data=np.transpose([v for v in aggregate_dict.values()])
-    accelerator.get_tracker("wandb").log({
-        "result_table":wandb.Table(columns=columns,data=data)
-    })
 if __name__=='__main__':
     print_details()
     args=parser.parse_args()
