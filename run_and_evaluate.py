@@ -160,7 +160,7 @@ def evaluate_one_sample(
         rewards=[
             d+f+s for d,f,s in zip(distances,face_distances,scores)
         ]
-        if REWARD_PARETO:
+        if reward_method==REWARD_PARETO:
             dominant_list=get_dominant_list(distances,scores,face_distances)
             for i in range(len(scores)):
                 if i not in dominant_list:
@@ -501,7 +501,8 @@ def evaluate_one_sample(
                                     policy_steps,
                                     accelerator,
                                     tpfdata,
-                                    value_function
+                                    value_function,
+                                    num_inference_steps
                                 )
                     else:
                         _train_policy_func(
@@ -519,7 +520,8 @@ def evaluate_one_sample(
                                 policy_steps,
                                 accelerator,
                                 tpfdata,
-                                value_function
+                                value_function,
+                                num_inference_steps
                         )
                     if accelerator.sync_gradients:
                         norm = accelerator.clip_grad_norm_(trainable_parameters, 1.0)
