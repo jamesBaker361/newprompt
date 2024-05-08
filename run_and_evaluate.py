@@ -41,7 +41,7 @@ from dpok_scheduler import DPOKDDIMScheduler
 from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
 from facenet_pytorch import MTCNN
-from elastic_face_iresnet import get_face_embedding,get_iresnet_model
+from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
 
@@ -680,7 +680,7 @@ def evaluate_one_sample(
 
     print(evaluation_image_list)
     #METRIC_LIST=[PROMPT_SIMILARITY, IDENTITY_CONSISTENCY, TARGET_SIMILARITY, AESTHETIC_SCORE, IMAGE_REWARD]
-    metric_dict=get_metric_dict(evaluation_prompt_list, evaluation_image_list,[src_image],accelerator)
+    metric_dict=get_metric_dict(evaluation_prompt_list, evaluation_image_list,[src_image],accelerator,True)
     accelerator.free_memory()
     torch.cuda.empty_cache()
     gc.collect()
