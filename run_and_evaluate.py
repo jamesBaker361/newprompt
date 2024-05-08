@@ -43,6 +43,7 @@ from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_valu
 from facenet_pytorch import MTCNN
 from elastic_face_iresnet import get_face_embedding,get_iresnet_model
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
+from experiment_helpers.better_vit_model import BetterViTModel
 
 def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
@@ -139,7 +140,7 @@ def evaluate_one_sample(
     print("blip caption ",caption)
 
     vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
-    vit_model = ViTModel.from_pretrained('facebook/dino-vitb16')
+    vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16')
     vit_model.eval()
     vit_model.requires_grad_(False)
     vit_model.to(accelerator.device)
