@@ -142,6 +142,7 @@ parser.add_argument("--subject_key",type=str,default="subject")
 parser.add_argument("--label_key",type=str,default="label")
 parser.add_argument("--image_key",type=str,default="splash")
 parser.add_argument("--prompt_key",type=str,default="optimal_prompt")
+parser.add_argument("--keyword",type=str,default="default")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
