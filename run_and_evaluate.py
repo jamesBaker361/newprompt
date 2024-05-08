@@ -111,7 +111,9 @@ def evaluate_one_sample(
     method_name=method_name.strip()
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
+    ir_model.eval()
     mtcnn=MTCNN(device=accelerator.device)
+    mtcnn.requires_grad_(True)
     mtcnn.eval()
     iresnet=get_iresnet_model(accelerator.device)
     mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
@@ -119,7 +121,8 @@ def evaluate_one_sample(
 
     blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
     blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
-
+    blip_model.eval()
+    blip_model.requires_grad_(True)
     blip_model.to(accelerator.device)
 
     blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
@@ -207,6 +210,7 @@ def evaluate_one_sample(
             unet,text_encoder,vae,tokenizer,image_encoder
         )
         for model in [vae,unet,text_encoder, image_encoder]:
+            model.eval()
             model.requires_grad_(False)
         evaluation_image_list=[
             pipeline(evaluation_prompt.format(subject),
