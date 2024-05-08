@@ -260,7 +260,7 @@ def _save_model(args, count, is_ddp, accelerator, unet):
 		unet_to_save.save_attn_procs(save_path)
 
 
-def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict,step):
+def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict,step,num_inference_steps:int):
 	"""Collects trajectories."""
 	for _ in range(g_step):
 		# samples for each prompt
@@ -274,7 +274,7 @@ def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict,s
 					guided_prompt_embeds,
 					log_prob_list,
 					_,
-			) = pipe.forward_collect_traj_ddim(prompt=batch, is_ddp=is_ddp,output_type="pil")
+			) = pipe.forward_collect_traj_ddim(prompt=batch, is_ddp=is_ddp,output_type="pil",num_inference_steps=num_inference_steps)
 			reward_list = []
 			txt_emb_list = []
 			for i in range(len(batch)):
@@ -372,7 +372,8 @@ def _train_policy_func(
 		policy_steps,
 		accelerator,
 		tpfdata,
-		value_function
+		value_function,
+		num_inference_steps:int
 ):
 	"""Trains the policy function."""
 	with torch.no_grad():
@@ -401,6 +402,7 @@ def _train_policy_func(
 			ts=batch_timestep.to(device),
 			unet_copy=unet_copy,
 			is_ddp=is_ddp,
+			num_inference_steps=num_inference_steps
 	)
 	with torch.no_grad():
 		adv = batch_final_reward.to(device).reshape([p_batch_size, 1]) - value_function(
