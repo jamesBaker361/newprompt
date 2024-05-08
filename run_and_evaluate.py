@@ -55,6 +55,15 @@ def cos_sim_rescaled(vector_i,vector_j,return_np=False):
         return result.cpu().numpy()
     return result
 
+def center_crop_to_min_dimension(image:Image)->Image:
+    width, height = image.size
+    min_dimension = min(width, height)
+    left = (width - min_dimension) // 2
+    top = (height - min_dimension) // 2
+    right = (width + min_dimension) // 2
+    bottom = (height + min_dimension) // 2
+    return image.crop((left, top, right, bottom))
+
 def evaluate_one_sample(
         method_name:str,
         src_image: Image,
@@ -116,6 +125,7 @@ def evaluate_one_sample(
         final_vit_content_weight:float
 )->dict:
     method_name=method_name.strip()
+    src_image=center_crop_to_min_dimension(src_image)
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
     ir_model.eval()
