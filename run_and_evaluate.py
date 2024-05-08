@@ -42,7 +42,7 @@ from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
 from facenet_pytorch import MTCNN
 from elastic_face_iresnet import get_face_embedding,get_iresnet_model
-from experiment_helpers.measuring import get_metric_dict
+from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 
 def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
