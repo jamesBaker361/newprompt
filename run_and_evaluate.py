@@ -42,6 +42,7 @@ from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
 from facenet_pytorch import MTCNN
 from elastic_face_iresnet import get_face_embedding,get_iresnet_model
+from experiment_helpers.measuring import get_metric_dict
 
 def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
@@ -725,50 +726,7 @@ def evaluate_one_sample(
 
     print(evaluation_image_list)
     #METRIC_LIST=[PROMPT_SIMILARITY, IDENTITY_CONSISTENCY, TARGET_SIMILARITY, AESTHETIC_SCORE, IMAGE_REWARD]
-    metric_dict={}
-    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    clip_inputs=clip_processor(text=evaluation_prompt_list, images=evaluation_image_list+[src_image], return_tensors="pt", padding=True)
-
-    outputs = clip_model(**clip_inputs)
-    text_embed_list=outputs.text_embeds.detach().numpy()
-    image_embed_list=outputs.image_embeds.detach().numpy()[:-1]
-    src_image_embed=outputs.image_embeds.detach().numpy()[-1]
-    ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
-    ir_model.requires_grad_(False)
-
-    identity_consistency_list=[]
-    target_similarity_list=[]
-    prompt_similarity_list=[]
-    for i in range(len(image_embed_list)):
-        image_embed=image_embed_list[i]
-        text_embed=text_embed_list[i]
-        target_similarity_list.append(cos_sim_rescaled(image_embed,src_image_embed,True))
-        prompt_similarity_list.append(cos_sim_rescaled(image_embed, text_embed,True))
-        for j in range(i+1, len(image_embed_list)):
-            #print(i,j)
-            vector_j=image_embed_list[j]
-            sim=cos_sim_rescaled(image_embed,vector_j,True)
-            identity_consistency_list.append(sim)
-
-
-    metric_dict[IDENTITY_CONSISTENCY]=np.mean(identity_consistency_list)
-    metric_dict[TARGET_SIMILARITY]=np.mean(target_similarity_list)
-    metric_dict[PROMPT_SIMILARITY]=np.mean(prompt_similarity_list)
-    #for evaluation_image,evaluation_prompt in zip(evaluation_image_list, evaluation_prompt_list):
-    metric_dict[IMAGE_REWARD]=np.mean(
-        [ir_model.score(evaluation_prompt.format(subject),evaluation_image) for evaluation_prompt,evaluation_image in zip(evaluation_prompt_list, evaluation_image_list) ]
-    )
-    metric_dict[IMAGE_REWARD_CAPTION]=np.mean(
-        [ir_model.score(evaluation_prompt.format(caption),evaluation_image) for evaluation_prompt,evaluation_image in zip(evaluation_prompt_list, evaluation_image_list) ]
-    )
-    aesthetic_scorer=get_aesthetic_scorer()
-    metric_dict[AESTHETIC_SCORE]=np.mean(
-        [aesthetic_scorer(evaluation_image).cpu().numpy()[0] for evaluation_image in evaluation_image_list]
-    )
-    for metric in METRIC_LIST:
-        if metric not in metric_dict:
-            metric_dict[metric]=0.0
+    metric_dict=get_metric_dict(evaluation_prompt_list, evaluation_image_list,[src_image],accelerator)
     accelerator.free_memory()
     torch.cuda.empty_cache()
     gc.collect()
