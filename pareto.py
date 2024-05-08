@@ -1,10 +1,11 @@
 
 def dominates(sample_values_dominant:list,sample_values_submissive:list)->bool:
     #returns true if sample_values_dominant is dominant over sample_values_submissive
+    count=0
     for metric_dom,metric_sub in zip(sample_values_dominant,sample_values_submissive):
-        if metric_dom<=metric_sub:
-            return False
-    return True
+        if metric_dom>=metric_sub:
+            count+=1
+    return count==len(sample_values_dominant)
 
 def get_dominant_list(*list_args)->list:
     num_samples=len(list_args[0])
