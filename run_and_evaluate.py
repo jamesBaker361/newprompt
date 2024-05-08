@@ -137,6 +137,14 @@ def evaluate_one_sample(
     caption_out=blip_model.generate(**caption_inputs)
     caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
     print("blip caption ",caption)
+
+    vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
+    vit_model = ViTModel.from_pretrained('facebook/dino-vitb16')
+    vit_model.eval()
+    vit_model.requires_grad_(False)
+    vit_model.to(accelerator.device)
+    vit_model=accelerator.prepare(vit_model)
+
     def _reward_fn(images, prompts, epoch):
         print(images)
         distances=[0.0 for _ in images]
@@ -145,14 +153,35 @@ def evaluate_one_sample(
         scores=[0.0 for _ in images]
         style_distances=[0.0 for _ in images]
         content_distances=[0.0 for _ in images]
+        time_factor=(float(epoch)/num_epochs)
+        if use_vit_content or use_vit_style or use_vit_distance:
+            vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
+                vit_processor,vit_model,images,False
+            )
+            vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
+                vit_processor,vit_model,[src_image],False
+            )
+            vit_src_image_embedding=vit_src_image_embedding_list[0]
+            vit_src_style_embedding=vit_src_style_embedding_list[0]
+            vit_src_content_embedding=vit_src_content_embedding_list[0]
         if use_vit_distance:
-            vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*(float(epoch)/num_epochs))
-            vit_src_image_embedding=get_hidden_states([src_image],vit_processor, vit_model,False)
-            image_vit_embeddings=get_hidden_states(images,vit_processor, vit_model,False)
+            vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
             distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
-                    for embedding in image_vit_embeddings]
+                    for embedding in vit_embedding_list]
+        if use_vit_content:
+            vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
+            content_distances=[
+                vit_content_weight* cos_sim_rescaled(vit_src_content_embedding,content_embedding)
+                for content_embedding  in vit_content_embedding_list
+            ]
+        if use_vit_style:
+            vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
+            style_distances=[
+                vit_style_weight + cos_sim_rescaled(vit_src_style_embedding, style_embedding)
+                for style_embedding in vit_style_embedding_list
+            ]
         if use_face_distance:
-            face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*(float(epoch)/num_epochs))
+            face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
             try:
                 image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
                 face_distances=[
@@ -162,14 +191,14 @@ def evaluate_one_sample(
             except (RuntimeError,TypeError):
                 pass
         if use_img_reward:
-            img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * (float(epoch)/num_epochs))
-            scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)]
+            img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
+            scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/2.0 for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
             scores=[s*img_reward_weight for s in scores]
         rewards=[
-            d+f+s for d,f,s in zip(distances,face_distances,scores)
+            d+f+s+vs+vc for d,f,s,vs,vc in zip(distances,face_distances,scores,style_distances, content_distances)
         ]
         if reward_method==REWARD_PARETO:
-            dominant_list=get_dominant_list(distances,scores,face_distances)
+            dominant_list=get_dominant_list(distances,scores,face_distances,style_distances, content_distances)
             for i in range(len(scores)):
                 if i not in dominant_list:
                     rewards[i]=0.0
@@ -293,8 +322,6 @@ def evaluate_one_sample(
         
         def prompt_fn():
             return random.choice(prompt_list).format(entity_name),{}
-        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
-        vit_model = ViTModel.from_pretrained('facebook/dino-vitb16')
 
         def image_samples_hook(*args):
             return
@@ -318,8 +345,6 @@ def evaluate_one_sample(
         ]
     elif method_name==DPOK: #TODO
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
-        vit_model = ViTModel.from_pretrained('facebook/dino-vitb16')
         reward_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
         reward_processor = CLIPProcessor.from_pretrained(
             "openai/clip-vit-large-patch14"
