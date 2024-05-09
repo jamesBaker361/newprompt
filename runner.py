@@ -121,16 +121,9 @@ parser.add_argument(
     help="number of samples to generate per prompt",
 )
 parser.add_argument(
-    "--clip_norm", type=float, default=0.1, help="norm for gradient clipping"
+    "--clip_norm", type=float, default=1.0, help="norm for gradient clipping"
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
-'''
-        use_img_reward:bool,
-        initial_img_reward_weight:float,
-        final_img_reward_weight:float,
-        use_vit_distance:bool,
-        initial_vit_weight:float,
-        final_vit_weight:float'''
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
 metrics=["face","img_reward","vit","vit_style","vit_content"]
 for metric in metrics:
@@ -143,6 +136,7 @@ parser.add_argument("--label_key",type=str,default="label")
 parser.add_argument("--image_key",type=str,default="splash")
 parser.add_argument("--prompt_key",type=str,default="optimal_prompt")
 parser.add_argument("--keyword",type=str,default="default")
+parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/oneshot")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -255,7 +249,8 @@ def main(args):
                                                                 args.final_vit_style_weight,
                                                                 args.use_vit_content,
                                                                 args.initial_vit_content_weight,
-                                                                args.final_vit_content_weight
+                                                                args.final_vit_content_weight,
+                                                                args.image_dir
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
