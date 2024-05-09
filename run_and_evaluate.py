@@ -132,10 +132,10 @@ def evaluate_one_sample(
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
     ir_model.eval()
-    mtcnn=MTCNN(device=accelerator.device)
+    mtcnn=MTCNN(device="cpu")
     mtcnn.requires_grad_(True)
     mtcnn.eval()
-    iresnet=get_iresnet_model(accelerator.device)
+    iresnet=get_iresnet_model("cpu")
     mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
 
@@ -143,11 +143,11 @@ def evaluate_one_sample(
     blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
     blip_model.eval()
     blip_model.requires_grad_(True)
-    blip_model.to(accelerator.device)
+    #blip_model.to(accelerator.device)
 
     blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
 
-    caption_inputs = blip_processor(src_image, "", return_tensors="pt").to(accelerator.device)
+    caption_inputs = blip_processor(src_image, "", return_tensors="pt")
     caption_out=blip_model.generate(**caption_inputs)
     caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
     print("blip caption ",caption)
@@ -156,7 +156,7 @@ def evaluate_one_sample(
     vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16')
     vit_model.eval()
     vit_model.requires_grad_(False)
-    vit_model.to(accelerator.device)
+    #vit_model.to(accelerator.device)
     vit_model=accelerator.prepare(vit_model)
 
     def _reward_fn(images, prompts, epoch):
@@ -594,7 +594,7 @@ def evaluate_one_sample(
                     generator=generator,
                     safety_checker=None).images[0] for validation_prompt in validation_prompt_list ]
             for i,image in enumerate(validation_image_list):
-                path=f"args.image_dir/{i}.png"
+                path=f"{image_dir}/{i}.png"
                 image.save(path)
                 accelerator.log({
                     f"validation_img_dpok":wandb.Image(path)
