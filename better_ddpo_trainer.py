@@ -66,7 +66,7 @@ def get_image_sample_hook(image_dir):
                 pmpt=pmpt.replace(" ", "_")
                 pmpt=re.sub(r'\W+', '', pmpt)
                 pmpt=pmpt[:45]
-                path=image_dir+pmpt+".png"
+                path=image_dir+"/"+pmpt+".png"
                 print("saving at ",path)
                 img.save(path)
                 try:
