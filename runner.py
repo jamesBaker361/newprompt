@@ -154,7 +154,7 @@ parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/oneshot")
   )'''
 
 def main(args):
-    accelerator=Accelerator(log_with="wandb")
+    accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
