@@ -29,6 +29,10 @@ from base_trainer import BaseTrainer
 from trl import DDPOConfig
 from per_prompt import PerPromptStatTracker
 from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
+import re
+import wandb
+import PIL
+from torchvision.transforms.functional import to_pil_image
 
 
 logger = get_logger(__name__)
@@ -52,6 +56,25 @@ This is a diffusion model that has been fine-tuned with reinforcement learning t
 
 """
 
+def get_image_sample_hook(image_dir):
+    os.makedirs(image_dir, exist_ok=True)
+    def _fn(prompt_image_data, global_step, tracker):
+        for row in prompt_image_data:
+            images=row[0]
+            prompts=row[1]
+            for img,pmpt in zip(images, prompts):
+                pmpt=pmpt.replace(" ", "_")
+                pmpt=re.sub(r'\W+', '', pmpt)
+                pmpt=pmpt[:45]
+                path=image_dir+pmpt+str(global_step)+".png"
+                print("saving at ",path)
+                pil_img=to_pil_image(img)
+                pil_img.save(path)
+                try:
+                    tracker.log({f"{pmpt}":wandb.Image(path)},tracker.tracker.step)
+                except PIL.UnidentifiedImageError:
+                    pass
+    return _fn
 
 class BetterDDPOTrainer(BaseTrainer):
     """

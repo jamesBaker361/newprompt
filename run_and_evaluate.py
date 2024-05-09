@@ -32,7 +32,7 @@ import gc
 from dvlab.rival.test_variation_sdv1 import make_eval_image
 from instant.infer import instant_generate_one_sample
 from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
-from better_ddpo_trainer import BetterDDPOTrainer
+from better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
 from text_embedding_helpers import prepare_textual_inversion
 from trl import DDPOConfig
 from pareto import get_dominant_list
@@ -337,8 +337,7 @@ def evaluate_one_sample(
         def prompt_fn():
             return random.choice(prompt_list).format(entity_name),{}
 
-        def image_samples_hook(*args):
-            return
+        image_samples_hook=get_image_sample_hook(image_dir)
         def reward_fn(images, prompts, epoch,prompt_metadata):
             return _reward_fn(images, prompts, epoch),{}
         trainer = BetterDDPOTrainer(
