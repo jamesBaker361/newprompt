@@ -136,7 +136,7 @@ def evaluate_one_sample(
     mtcnn.requires_grad_(True)
     mtcnn.eval()
     iresnet=get_iresnet_model("cpu")
-    mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
+    #mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
 
     blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
@@ -145,7 +145,7 @@ def evaluate_one_sample(
     blip_model.requires_grad_(True)
     #blip_model.to(accelerator.device)
 
-    blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
+    #blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
 
     caption_inputs = blip_processor(src_image, "", return_tensors="pt")
     caption_out=blip_model.generate(**caption_inputs)
@@ -157,7 +157,7 @@ def evaluate_one_sample(
     vit_model.eval()
     vit_model.requires_grad_(False)
     #vit_model.to(accelerator.device)
-    vit_model=accelerator.prepare(vit_model)
+    #vit_model=accelerator.prepare(vit_model)
 
     def _reward_fn(images, prompts, epoch):
         print(images)
@@ -415,7 +415,7 @@ def evaluate_one_sample(
                 batch = data[i : i + batch_size]
                 yield batch
 
-        data_iterator=_my_data_iterator([p.format(PLACEHOLDER) for p in prompt_list], g_batch_size)
+        data_iterator=_my_data_iterator([p.format(entity_name) for p in prompt_list], g_batch_size)
         data_iter_loader = iter(data_iterator)
 
 
