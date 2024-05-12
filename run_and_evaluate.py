@@ -431,8 +431,6 @@ def evaluate_one_sample(
         value_function, value_optimizer = accelerator.prepare(
         value_function, value_optimizer
         )
-        value_function, value_optimizer = accelerator.prepare(
-            value_function, value_optimizer)
         trainable_parameters, optimizer = accelerator.prepare(
         trainable_parameters, optimizer)
 
