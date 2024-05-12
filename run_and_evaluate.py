@@ -385,9 +385,9 @@ def evaluate_one_sample(
         pipeline.unet.to(accelerator.device, dtype=weight_dtype)
         unet_copy.to(accelerator.device, dtype=weight_dtype)
         pipeline.scheduler.to(accelerator.device, weight_dtype)
-        vit_model.to(accelerator.device)
+        #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
-        reward_clip_model.to(accelerator.device)
+        #reward_clip_model.to(accelerator.device)
         for model in [reward_clip_model, vit_model, unet_copy]:
             model.requires_grad_(False)
 
