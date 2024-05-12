@@ -388,7 +388,7 @@ def evaluate_one_sample(
         #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
         #reward_clip_model.to(accelerator.device)
-        for model in [reward_clip_model, vit_model, unet_copy]:
+        for model in [reward_clip_model, vit_model, unet_copy,vae,text_encoder,unet]:
             model.requires_grad_(False)
 
         pipeline.setup_parameters(
