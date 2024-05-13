@@ -694,6 +694,9 @@ def evaluate_one_sample(
         message=f"no support for {method_name} try one of "+" ".join(METHOD_LIST)
         raise Exception(message)
 
+    accelerator.free_memory()
+    torch.cuda.empty_cache()
+    gc.collect()
     print(evaluation_image_list)
     #METRIC_LIST=[PROMPT_SIMILARITY, IDENTITY_CONSISTENCY, TARGET_SIMILARITY, AESTHETIC_SCORE, IMAGE_REWARD]
     metric_dict=get_metric_dict(evaluation_prompt_list, evaluation_image_list,[src_image],accelerator,True)
