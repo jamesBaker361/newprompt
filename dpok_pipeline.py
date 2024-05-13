@@ -56,6 +56,10 @@ class DPOKPipeline(StableDiffusionPipeline):
             self.text_encoder.requires_grad_(False)
             self.text_encoder.get_input_embeddings().requires_grad_(True)
             self.text_encoder.gradient_checkpointing_enable()
+        for param in self.text_encoder.parameters():
+          # only upcast trainable parameters (LoRA) into fp32
+          if param.requires_grad:
+              param.data = param.to(torch.float32)
         if train_unet:
             if use_lora_unet:
                 self.unet.requires_grad_(False)
@@ -67,12 +71,12 @@ class DPOKPipeline(StableDiffusionPipeline):
                 )
                 self.unet=get_peft_model(self.unet,lora_config)
                 self.unet.print_trainable_parameters()
-                '''
+                
                 # To avoid accelerate unscaling problems in FP16.
                 for param in self.unet.parameters():
                     # only upcast trainable parameters (LoRA) into fp32
                     if param.requires_grad:
-                        param.data = param.to(torch.float32)'''
+                        param.data = param.to(torch.float32)
             else:
                 self.unet.requires_grad_(True)
             self.unet.enable_gradient_checkpointing()

@@ -31,6 +31,9 @@ class BetterDefaultDDPOStableDiffusionPipeline(DefaultDDPOStableDiffusionPipelin
         elif train_text_encoder_embeddings:
             self.sd_pipeline.text_encoder.requires_grad_(False)
             self.sd_pipeline.text_encoder.get_input_embeddings().requires_grad_(True)
+        for param in self.sd_pipeline.text_encoder.parameters():
+            if param.requires_grad:
+                param.data = param.to(torch.float32)
         if train_unet:
             if self.use_lora:
                 self.sd_pipeline.unet.requires_grad_(False)
@@ -42,14 +45,14 @@ class BetterDefaultDDPOStableDiffusionPipeline(DefaultDDPOStableDiffusionPipelin
                 )
                 self.sd_pipeline.unet=get_peft_model(self.sd_pipeline.unet,lora_config)
                 self.sd_pipeline.unet.print_trainable_parameters()
-                '''
-                # To avoid accelerate unscaling problems in FP16.
-                for param in self.sd_pipeline.unet.parameters():
-                    # only upcast trainable parameters (LoRA) into fp32
-                    if param.requires_grad:
-                        param.data = param.to(torch.float32)'''
+                
             else:
                 self.sd_pipeline.unet.requires_grad_(True)
+            # To avoid accelerate unscaling problems in FP16.
+            for param in self.sd_pipeline.unet.parameters():
+                # only upcast trainable parameters (LoRA) into fp32
+                if param.requires_grad:
+                    param.data = param.to(torch.float32)
 
     def get_trainable_layers(self):
         return [p for p in self.sd_pipeline.unet.parameters() if p.requires_grad]+[p for p in self.sd_pipeline.text_encoder.parameters() if p.requires_grad]
