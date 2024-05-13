@@ -237,7 +237,7 @@ class BetterDDPOTrainer(BaseTrainer):
                 reward, reward_metadata = self.reward_fn(images, prompts, epoch,prompt_metadata)
                 rewards.append(
                     (
-                        torch.as_tensor(reward, device=self.accelerator.device),
+                        torch.as_tensor(reward, device=self.accelerator.device,dtype=torch.float32),
                         reward_metadata,
                     )
                 )
@@ -246,7 +246,7 @@ class BetterDDPOTrainer(BaseTrainer):
                 x[0],x[1],epoch,x[2]
             ), prompt_image_pairs)
             rewards = [
-                (torch.as_tensor(reward.result(), device=self.accelerator.device), reward_metadata.result())
+                (torch.as_tensor(reward.result(), device=self.accelerator.device,dtype=torch.float32), reward_metadata.result())
                 for reward, reward_metadata in rewards
             ]
 
@@ -566,6 +566,7 @@ class BetterDDPOTrainer(BaseTrainer):
                     info["loss"].append(loss)
 
                     self.accelerator.backward(loss,retain_graph=retain_graph)
+                    
                     if self.accelerator.sync_gradients:
                         self.accelerator.clip_grad_norm_(
                             self.trainable_layers.parameters()
