@@ -349,7 +349,7 @@ def evaluate_one_sample(
         )
         print(f"acceleerate device {trainer.accelerator.device}")
         tracker=trainer.accelerator.get_tracker("wandb").run
-        trainer.train(retain_graph=True)
+        trainer.train(retain_graph=False)
         evaluation_image_list=[
             pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,
@@ -371,7 +371,7 @@ def evaluate_one_sample(
             "bf16":torch.bfloat16
         }[accelerator.mixed_precision]
         pipeline=DPOKPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", torch_dtype=weight_dtype
+        "runwayml/stable-diffusion-v1-5", #torch_dtype=weight_dtype
         )
         pipeline("do this to help it instantiate things",num_inference_steps=1)
         pipeline.safety_checker=None
@@ -380,15 +380,15 @@ def evaluate_one_sample(
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
         text_encoder=pipeline.text_encoder
         tokenizer=pipeline.tokenizer
-        pipeline.text_encoder.to(accelerator.device, dtype=weight_dtype)
-        pipeline.vae.to(accelerator.device, dtype=weight_dtype)
-        pipeline.unet.to(accelerator.device, dtype=weight_dtype)
-        unet_copy.to(accelerator.device, dtype=weight_dtype)
-        pipeline.scheduler.to(accelerator.device, weight_dtype)
+        pipeline.text_encoder.to(accelerator.device) #, dtype=weight_dtype)
+        pipeline.vae.to(accelerator.device) #, dtype=weight_dtype)
+        pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
+        unet_copy.to(accelerator.device) #, dtype=weight_dtype)
+        pipeline.scheduler.to(accelerator.device) #, weight_dtype)
         #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
         #reward_clip_model.to(accelerator.device)
-        for model in [reward_clip_model, vit_model, unet_copy,vae,text_encoder,unet]:
+        for model in [reward_clip_model, vit_model, unet_copy,pipeline.vae,pipeline.text_encoder,pipeline.unet]:
             model.requires_grad_(False)
 
         pipeline.setup_parameters(
