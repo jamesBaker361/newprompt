@@ -79,7 +79,7 @@ class DPOKPipeline(StableDiffusionPipeline):
                         param.data = param.to(torch.float32)
             else:
                 self.unet.requires_grad_(True)
-            self.unet.enable_gradient_checkpointing()
+            #self.unet.enable_gradient_checkpointing()
   def get_trainable_layers(self):
     return [p for p in self.unet.parameters() if p.requires_grad]+[p for p in self.text_encoder.parameters() if p.requires_grad]
 
