@@ -404,7 +404,7 @@ def evaluate_one_sample(
         if train_text_encoder_embeddings:
             entity_name=PLACEHOLDER
         trainable_parameters=pipeline.get_trainable_layers()
-        print(trainable_parameters)
+        #print(trainable_parameters)
         optimizer = torch.optim.AdamW(
             trainable_parameters,
             lr=0.001,
