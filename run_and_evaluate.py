@@ -495,67 +495,48 @@ def evaluate_one_sample(
         if train_unet:
             trainable_list.append(unet)
         policy_steps=train_gradient_accumulation_steps*p_step
-        with accelerator.autocast():
-            for count in range(0, max_train_steps//p_step):
-                unet.eval()
-                batch=_get_batch(
-                    data_iter_loader,
-                    _my_data_iterator,
-                    prompt_list,
-                    g_batch_size,
-                    num_samples,
-                    accelerator
-                )
-                _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,count,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
-                _trim_buffer(buffer_size, state_dict)
+        #with accelerator.autocast():
+        for count in range(0, max_train_steps//p_step):
+            unet.eval()
+            batch=_get_batch(
+                data_iter_loader,
+                _my_data_iterator,
+                prompt_list,
+                g_batch_size,
+                num_samples,
+                accelerator
+            )
+            _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,count,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
+            _trim_buffer(buffer_size, state_dict)
 
-                #value learning
-                value_optimizer.zero_grad()
-                total_val_loss=0.0
-                v_batch_size=min(v_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
-                for _v in range(v_step):
-                    if _v< v_step-1:
-                        with accelerator.no_sync(value_function):
-                            total_val_loss+=_train_value_func(value_function, state_dict, accelerator, v_batch_size,v_step)
-                    else:
+            #value learning
+            value_optimizer.zero_grad()
+            total_val_loss=0.0
+            v_batch_size=min(v_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
+            for _v in range(v_step):
+                if _v< v_step-1:
+                    with accelerator.no_sync(value_function):
                         total_val_loss+=_train_value_func(value_function, state_dict, accelerator, v_batch_size,v_step)
-                value_optimizer.step()
-                value_optimizer.zero_grad()
-                if accelerator.is_main_process:
-                    print("value_loss", total_val_loss)
-                    accelerator.log({"value_loss": total_val_loss}, )
-                del total_val_loss
-                torch.cuda.empty_cache()
+                else:
+                    total_val_loss+=_train_value_func(value_function, state_dict, accelerator, v_batch_size,v_step)
+            value_optimizer.step()
+            value_optimizer.zero_grad()
+            if accelerator.is_main_process:
+                print("value_loss", total_val_loss)
+                accelerator.log({"value_loss": total_val_loss}, )
+            del total_val_loss
+            torch.cuda.empty_cache()
 
-                #poloucy learning
-                tpfdata = TrainPolicyFuncData()
-                p_batch_size=min(p_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
-                for _p in range(p_step):
-                    optimizer.zero_grad()
-                    for accum_step in range(train_gradient_accumulation_steps):
-                        if accum_step<train_gradient_accumulation_steps-1:
-                            with accelerator.no_sync(unet):
-                                with accelerator.no_sync(text_encoder):
-                                    _train_policy_func(
-                                        p_batch_size,
-                                        ratio_clip,
-                                        reward_weight,
-                                        kl_warmup,
-                                        kl_weight,
-                                        train_gradient_accumulation_steps,
-                                        state_dict,
-                                        pipeline,
-                                        unet_copy,
-                                        False,
-                                        count,
-                                        policy_steps,
-                                        accelerator,
-                                        tpfdata,
-                                        value_function,
-                                        num_inference_steps
-                                    )
-                        else:
-                            _train_policy_func(
+            #poloucy learning
+            tpfdata = TrainPolicyFuncData()
+            p_batch_size=min(p_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
+            for _p in range(p_step):
+                optimizer.zero_grad()
+                for accum_step in range(train_gradient_accumulation_steps):
+                    if accum_step<train_gradient_accumulation_steps-1:
+                        with accelerator.no_sync(unet):
+                            with accelerator.no_sync(text_encoder):
+                                _train_policy_func(
                                     p_batch_size,
                                     ratio_clip,
                                     reward_weight,
@@ -572,35 +553,54 @@ def evaluate_one_sample(
                                     tpfdata,
                                     value_function,
                                     num_inference_steps
-                            )
-                        if accelerator.sync_gradients:
-                            norm = accelerator.clip_grad_norm_(trainable_parameters, 1.0)
-                        tpfdata.tot_grad_norm += norm.item() / p_step
-                        optimizer.step()
-                        if accelerator.is_main_process:
-                            print(f"count: [{count} / {max_train_steps // p_step}]")
-                            print("train_reward", torch.mean(state_dict["final_reward"]).item())
-                            accelerator.log(
-                            {"train_reward": torch.mean(state_dict["final_reward"]).item()})
-                            print("grad norm", tpfdata.tot_grad_norm, "ratio", tpfdata.tot_ratio)
-                            print("kl", tpfdata.tot_kl, "p_loss", tpfdata.tot_p_loss)
-                            accelerator.log({"grad norm": tpfdata.tot_grad_norm}, )
-                            accelerator.log({"ratio": tpfdata.tot_ratio}, )
-                            accelerator.log({"kl": tpfdata.tot_kl}, )
-                            accelerator.log({"p_loss": tpfdata.tot_p_loss}, )
-                        torch.cuda.empty_cache()
-                validation_prompt_list=[entity_name]
-                generator=torch.Generator(device=accelerator.device).manual_seed(123)
-                validation_image_list=[pipeline(validation_prompt,num_inference_steps=num_inference_steps,
-                        negative_prompt=NEGATIVE,
-                        generator=generator,
-                        safety_checker=None).images[0] for validation_prompt in validation_prompt_list ]
-                for i,image in enumerate(validation_image_list):
-                    path=f"{image_dir}/{i}.png"
-                    image.save(path)
-                    accelerator.log({
-                        f"validation_img_dpok":wandb.Image(path)
-                    })
+                                )
+                    else:
+                        _train_policy_func(
+                                p_batch_size,
+                                ratio_clip,
+                                reward_weight,
+                                kl_warmup,
+                                kl_weight,
+                                train_gradient_accumulation_steps,
+                                state_dict,
+                                pipeline,
+                                unet_copy,
+                                False,
+                                count,
+                                policy_steps,
+                                accelerator,
+                                tpfdata,
+                                value_function,
+                                num_inference_steps
+                        )
+                    if accelerator.sync_gradients:
+                        norm = accelerator.clip_grad_norm_(trainable_parameters, 1.0)
+                    tpfdata.tot_grad_norm += norm.item() / p_step
+                    optimizer.step()
+                    if accelerator.is_main_process:
+                        print(f"count: [{count} / {max_train_steps // p_step}]")
+                        print("train_reward", torch.mean(state_dict["final_reward"]).item())
+                        accelerator.log(
+                        {"train_reward": torch.mean(state_dict["final_reward"]).item()})
+                        print("grad norm", tpfdata.tot_grad_norm, "ratio", tpfdata.tot_ratio)
+                        print("kl", tpfdata.tot_kl, "p_loss", tpfdata.tot_p_loss)
+                        accelerator.log({"grad norm": tpfdata.tot_grad_norm}, )
+                        accelerator.log({"ratio": tpfdata.tot_ratio}, )
+                        accelerator.log({"kl": tpfdata.tot_kl}, )
+                        accelerator.log({"p_loss": tpfdata.tot_p_loss}, )
+                    torch.cuda.empty_cache()
+            validation_prompt_list=[entity_name]
+            generator=torch.Generator(device=accelerator.device).manual_seed(123)
+            validation_image_list=[pipeline(validation_prompt,num_inference_steps=num_inference_steps,
+                    negative_prompt=NEGATIVE,
+                    generator=generator,
+                    safety_checker=None).images[0] for validation_prompt in validation_prompt_list ]
+            for i,image in enumerate(validation_image_list):
+                path=f"{image_dir}/{i}.png"
+                image.save(path)
+                accelerator.log({
+                    f"validation_img_dpok":wandb.Image(path)
+                })
         evaluation_image_list=[
             pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,
