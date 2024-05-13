@@ -67,8 +67,11 @@ def randn_tensor(
 class DPOKDDIMScheduler(DDIMScheduler):
   """Extension of diffusers.DDIMScheduler."""
 
-  def to(self,device,weight_dtype):
-    self.alphas_cumprod=self.alphas_cumprod.to(device,weight_dtype)
+  def to(self,device,weight_dtype=None):
+    if weight_dtype is not None:
+      self.alphas_cumprod=self.alphas_cumprod.to(device,weight_dtype)
+    else:
+      self.alphas_cumprod=self.alphas_cumprod.to(device)
   def _get_variance_logprob(self, timestep, prev_timestep):
     alpha_prod_t = self.alphas_cumprod[timestep].to(timestep.device)
     mask_a = (prev_timestep >= 0).int().to(timestep.device)
