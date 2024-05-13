@@ -431,8 +431,8 @@ def evaluate_one_sample(
         value_function, value_optimizer = accelerator.prepare(
         value_function, value_optimizer
         )
-        trainable_parameters, optimizer = accelerator.prepare(
-        trainable_parameters, optimizer)
+        trainable_parameters, optimizer, data_iter_loader = accelerator.prepare(
+        trainable_parameters, optimizer, data_iter_loader )
 
         total_batch_size = (
         batch_size
