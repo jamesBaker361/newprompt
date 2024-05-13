@@ -357,6 +357,7 @@ def evaluate_one_sample(
                     negative_prompt=NEGATIVE,
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
+        del pipeline
     elif method_name==DPOK: #TODO
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
         reward_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
@@ -606,7 +607,8 @@ def evaluate_one_sample(
                     num_inference_steps=num_inference_steps,
                     negative_prompt=NEGATIVE,
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
-        ]            
+        ]
+        del unet, unet_copy, value_function, value_optimizer, optimizer, state_dict,reward_clip_model, vit_model, data_iterator,pipeline
 
     
     elif method_name in [CHOSEN,CHOSEN_K,CHOSEN_K_STYLE,CHOSEN_STYLE]:
@@ -703,5 +705,4 @@ def evaluate_one_sample(
     accelerator.free_memory()
     torch.cuda.empty_cache()
     gc.collect()
-    unet=vae=tokenizer=text_encoder=image_encoder=blip_diffusion_pipe=pipeline=clip_model=optimizer=None
     return metric_dict,evaluation_image_list
