@@ -27,6 +27,7 @@ import wandb
 from gpu import print_details
 import gc
 from experiment_helpers.static_globals import METRIC_LIST
+import datetime
 
 parser=argparse.ArgumentParser()
 
@@ -272,6 +273,11 @@ def main(args):
             f"{args.method_name}_{metric}":np.mean(value_list)
         })
 if __name__=='__main__':
+    # Get current date and time
+    current_datetime = datetime.datetime.now()
+
+    # Print the current date and time
+    print("Current date and time:", current_datetime)
     print_details()
     args=parser.parse_args()
     print(args)

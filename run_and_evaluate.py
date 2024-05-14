@@ -701,7 +701,7 @@ def evaluate_one_sample(
     gc.collect()
     print(evaluation_image_list)
     #METRIC_LIST=[PROMPT_SIMILARITY, IDENTITY_CONSISTENCY, TARGET_SIMILARITY, AESTHETIC_SCORE, IMAGE_REWARD]
-    metric_dict=get_metric_dict(evaluation_prompt_list, evaluation_image_list,[src_image],accelerator,True)
+    metric_dict=get_metric_dict(evaluation_prompt_list, evaluation_image_list,[src_image],None,True)
     accelerator.free_memory()
     torch.cuda.empty_cache()
     gc.collect()
