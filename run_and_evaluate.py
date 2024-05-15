@@ -603,7 +603,7 @@ def evaluate_one_sample(
                     accelerator.log({
                         f"validation_img_dpok":wandb.Image(path)
                     })
-                except UnidentifiedImageError:
+                except:
                     print(f"couldnt find {path}")
         evaluation_image_list=[
             pipeline(evaluation_prompt.format(entity_name),
