@@ -374,8 +374,7 @@ def evaluate_one_sample(
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
         del pipeline
-    elif method_name==DPOK: #TODO
-        cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+    elif method_name==DPOK:
         reward_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
         reward_processor = CLIPProcessor.from_pretrained(
             "openai/clip-vit-large-patch14"
