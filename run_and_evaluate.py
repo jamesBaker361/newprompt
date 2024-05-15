@@ -159,6 +159,7 @@ def evaluate_one_sample(
     #vit_model.to(accelerator.device)
     #vit_model=accelerator.prepare(vit_model)
 
+    wandb_tracker=accelerator.get_tracker("wandb")
     def _reward_fn(images, prompts, epoch):
         print(images)
         distances=[0.0 for _ in images]
@@ -182,18 +183,27 @@ def evaluate_one_sample(
             vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
             distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
                     for embedding in vit_embedding_list]
+            wandb_tracker.log({
+                "vit_distance":np.mean(distances)
+            })
         if use_vit_content:
             vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
             content_distances=[
                 vit_content_weight* cos_sim_rescaled(vit_src_content_embedding,content_embedding)
                 for content_embedding  in vit_content_embedding_list
             ]
+            wandb_tracker.log(
+                {"content_distance":np.mean(content_distances)}
+            )
         if use_vit_style:
             vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
             style_distances=[
                 vit_style_weight + cos_sim_rescaled(vit_src_style_embedding, style_embedding)
                 for style_embedding in vit_style_embedding_list
             ]
+            wandb_tracker.log({
+                "style_distance":np.mean(style_distances)
+            })
         if use_face_distance:
             face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
             try:
@@ -202,12 +212,18 @@ def evaluate_one_sample(
                     face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
                     for face_embedding in  image_face_embeddings
                 ]
+                wandb_tracker.log({
+                    "face_distance":np.mean(face_distances)
+                })
             except (RuntimeError,TypeError):
                 pass
         if use_img_reward:
             img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
             scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/4.0 for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
             scores=[s*img_reward_weight for s in scores]
+            wandb_tracker.log({
+                "score":np.mean(scores)
+            })
         rewards=[
             d+f+s+vs+vc for d,f,s,vs,vc in zip(distances,face_distances,scores,style_distances, content_distances)
         ]
