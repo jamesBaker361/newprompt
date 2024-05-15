@@ -17,7 +17,7 @@ from diffusers.pipelines import BlipDiffusionPipeline
 from diffusers import UNet2DConditionModel
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, StableDiffusionPipeline
 from transformers import Blip2Processor, Blip2ForConditionalGeneration
-from PIL import Image
+from PIL import Image,UnidentifiedImageError
 import wandb
 import ImageReward as image_reward
 reward_cache="/scratch/jlb638/ImageReward"
@@ -599,9 +599,12 @@ def evaluate_one_sample(
             for i,image in enumerate(validation_image_list):
                 path=f"{image_dir}/{i}.png"
                 image.save(path)
-                accelerator.log({
-                    f"validation_img_dpok":wandb.Image(path)
-                })
+                try:
+                    accelerator.log({
+                        f"validation_img_dpok":wandb.Image(path)
+                    })
+                except UnidentifiedImageError:
+                    print(f"couldnt find {path}")
         evaluation_image_list=[
             pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,
