@@ -138,6 +138,7 @@ parser.add_argument("--prompt_key",type=str,default="optimal_prompt")
 parser.add_argument("--keyword",type=str,default="default")
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/oneshot")
 parser.add_argument("--value_epochs",type=int,default=0,help="epochs to train alue function before training unet for dpok")
+parser.add_argument("--normalize_rewards",action="store_true",help="whether to normalize rewards for ddpo")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -252,7 +253,8 @@ def main(args):
                                                                 args.initial_vit_content_weight,
                                                                 args.final_vit_content_weight,
                                                                 args.image_dir,
-                                                                args.value_epochs
+                                                                args.value_epochs,
+                                                                args.normalize_rewards
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):

@@ -125,7 +125,8 @@ def evaluate_one_sample(
         initial_vit_content_weight:float,
         final_vit_content_weight:float,
         image_dir:str,
-        value_epochs:int
+        value_epochs:int,
+        normalize_rewards:bool
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -370,7 +371,7 @@ def evaluate_one_sample(
         print(f"acceleerate device {trainer.accelerator.device}")
         tracker=trainer.accelerator.get_tracker("wandb").run
         with accelerator.autocast():
-            trainer.train(retain_graph=False)
+            trainer.train(retain_graph=False,normalize_rewards=normalize_rewards)
         evaluation_image_list=[
             pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,

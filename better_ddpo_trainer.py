@@ -252,7 +252,7 @@ class BetterDDPOTrainer(BaseTrainer):
 
         return zip(*rewards)
 
-    def step(self, epoch: int, global_step: int,retain_graph:bool):
+    def step(self, epoch: int, global_step: int,retain_graph:bool,normalize_rewards:bool):
         """
         Perform a single step of training.
 
@@ -304,8 +304,10 @@ class BetterDDPOTrainer(BaseTrainer):
             prompt_ids = self.accelerator.gather(samples["prompt_ids"]).cpu().numpy()
             prompts = self.sd_pipeline.tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
             advantages = self.stat_tracker.update(prompts, rewards)
-        else:
+        elif normalize_rewards:
             advantages = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+        else:
+            advantages=rewards
 
         # ungather advantages;  keep the entries corresponding to the samples on this process
         samples["advantages"] = (
@@ -615,7 +617,7 @@ class BetterDDPOTrainer(BaseTrainer):
             )
         return True, ""
 
-    def train(self, epochs: Optional[int] = None,retain_graph:bool=False):
+    def train(self, epochs: Optional[int] = None,retain_graph:bool=False,normalize_rewards:bool=False):
         """
         Train the model for a given number of epochs
         """
@@ -623,7 +625,7 @@ class BetterDDPOTrainer(BaseTrainer):
         if epochs is None:
             epochs = self.config.num_epochs
         for epoch in range(self.first_epoch, epochs):
-            global_step = self.step(epoch, global_step,retain_graph)
+            global_step = self.step(epoch, global_step,retain_graph,normalize_rewards)
 
     def create_model_card(self, path: str, model_name: Optional[str] = "TRL DDPO Model") -> None:
         """Creates and saves a model card for a TRL model.
