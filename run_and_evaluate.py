@@ -159,7 +159,7 @@ def evaluate_one_sample(
     vit_model.requires_grad_(False)
     #vit_model.to(accelerator.device)
     #vit_model=accelerator.prepare(vit_model)
-
+    max_train_steps=samples_per_epoch*num_epochs
     wandb_tracker=accelerator.get_tracker("wandb")
     def _reward_fn(images, prompts, epoch):
         print(images)
@@ -170,6 +170,9 @@ def evaluate_one_sample(
         style_distances=[0.0 for _ in images]
         content_distances=[0.0 for _ in images]
         time_factor=(float(epoch)/num_epochs)
+        if method_name==DPOK:
+            total_steps=max_train_steps//p_step
+            time_factor=float(epoch)/float(total_steps)
         if use_vit_content or use_vit_style or use_vit_distance:
             vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
                 vit_processor,vit_model,images,False
@@ -458,7 +461,7 @@ def evaluate_one_sample(
         batch_size
         * accelerator.num_processes
             * train_gradient_accumulation_steps)
-        max_train_steps=samples_per_epoch*num_epochs
+        
 
 
           # Only show the progress bar once on each machine.
@@ -513,7 +516,7 @@ def evaluate_one_sample(
             trainable_list.append(unet)
         policy_steps=train_gradient_accumulation_steps*p_step
         #with accelerator.autocast():
-        def _single_value_epoch():
+        def _single_value_epoch(step):
             unet.eval()
             batch=_get_batch(
                 data_iter_loader,
@@ -523,7 +526,7 @@ def evaluate_one_sample(
                 num_samples,
                 accelerator
             )
-            _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,count,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
+            _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,step,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
             _trim_buffer(buffer_size, state_dict)
 
             #value learning
@@ -544,9 +547,9 @@ def evaluate_one_sample(
             del total_val_loss
             torch.cuda.empty_cache()
         for v_epoch in range(value_epochs):
-            _single_value_epoch()
+            _single_value_epoch(0)
         for count in range(0, max_train_steps//p_step):
-            _single_value_epoch()
+            _single_value_epoch(count)
 
             #poloucy learning
             tpfdata = TrainPolicyFuncData()
