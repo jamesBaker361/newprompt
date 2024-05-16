@@ -232,6 +232,9 @@ def evaluate_one_sample(
         rewards=[
             d+f+s+vs+vc for d,f,s,vs,vc in zip(distances,face_distances,scores,style_distances, content_distances)
         ]
+        wandb_tracker.log({
+            "reward_fn":np.mean(rewards)
+        })
         if reward_method==REWARD_PARETO:
             dominant_list=get_dominant_list(distances,scores,face_distances,style_distances, content_distances)
             for i in range(len(scores)):
