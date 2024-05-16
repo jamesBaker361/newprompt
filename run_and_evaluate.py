@@ -126,7 +126,9 @@ def evaluate_one_sample(
         final_vit_content_weight:float,
         image_dir:str,
         value_epochs:int,
-        normalize_rewards:bool
+        normalize_rewards:bool,
+        normalize_rewards_individually:bool,
+        n_normalization_images:int
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -160,87 +162,115 @@ def evaluate_one_sample(
     vit_model.requires_grad_(False)
     #vit_model.to(accelerator.device)
     #vit_model=accelerator.prepare(vit_model)
+
+    normalization_image_list=[]
+
     max_train_steps=samples_per_epoch*num_epochs
     wandb_tracker=accelerator.get_tracker("wandb")
-    def _reward_fn(images, prompts, epoch):
-        print(images)
-        distances=[0.0 for _ in images]
-        face_distances=[0.0 for _ in images]
-        rewards=[0.0 for _ in images]
-        scores=[0.0 for _ in images]
-        style_distances=[0.0 for _ in images]
-        content_distances=[0.0 for _ in images]
-        time_factor=(float(epoch)/num_epochs)
-        if method_name==DPOK:
-            total_steps=max_train_steps//p_step
-            time_factor=float(epoch)/float(total_steps)
-        if use_vit_content or use_vit_style or use_vit_distance:
-            vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                vit_processor,vit_model,images,False
-            )
-            vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
-                vit_processor,vit_model,[src_image],False
-            )
-            vit_src_image_embedding=vit_src_image_embedding_list[0]
-            vit_src_style_embedding=vit_src_style_embedding_list[0]
-            vit_src_content_embedding=vit_src_content_embedding_list[0]
-        if use_vit_distance:
-            vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
-            distances=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
-                    for embedding in vit_embedding_list]
-            wandb_tracker.log({
-                "vit_distance":np.mean(distances)
-            })
-        if use_vit_content:
-            vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
-            content_distances=[
-                vit_content_weight* cos_sim_rescaled(vit_src_content_embedding,content_embedding)
-                for content_embedding  in vit_content_embedding_list
-            ]
-            wandb_tracker.log(
-                {"content_distance":np.mean(content_distances)}
-            )
-        if use_vit_style:
-            vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
-            style_distances=[
-                vit_style_weight + cos_sim_rescaled(vit_src_style_embedding, style_embedding)
-                for style_embedding in vit_style_embedding_list
-            ]
-            wandb_tracker.log({
-                "style_distance":np.mean(style_distances)
-            })
-        if use_face_distance:
-            face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
-            try:
-                image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
-                face_distances=[
-                    face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
-                    for face_embedding in  image_face_embeddings
+    def get_reward_fn(pipeline:StableDiffusionPipeline,entity_name:str):
+        vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
+            vit_processor,vit_model,[src_image],False
+        )
+        vit_src_image_embedding=vit_src_image_embedding_list[0]
+        vit_src_style_embedding=vit_src_style_embedding_list[0]
+        vit_src_content_embedding=vit_src_content_embedding_list[0]
+        normalization_image_list=[pipeline(entity_name,num_inference_steps=num_inference_steps,
+                    negative_prompt=NEGATIVE,
+                    safety_checker=None).images[0] for _ in range(n_normalization_images)]
+        normalization_vit_embedding_list,normalization_vit_style_embedding_list, normalization_vit_content_embedding_list=get_vit_embeddings(
+                    vit_processor,vit_model,normalization_image_list,False
+                )
+        normalization_vit_similarities=[cos_sim_rescaled(vit_src_image_embedding,embedding)
+                        for embedding in normalization_vit_embedding_list]
+        normalization_style_similarities=[
+                    cos_sim_rescaled(vit_src_style_embedding, style_embedding)
+                    for style_embedding in normalization_vit_style_embedding_list
+                ]
+        normalization_content_similarities=[
+                    cos_sim_rescaled(vit_src_content_embedding,content_embedding)
+                    for content_embedding  in normalization_vit_content_embedding_list
+                ]
+        normalization_image_face_embeddings=get_face_embedding(normalization_image_list,mtcnn,iresnet,face_margin)
+        normalization_face_similarities=[
+                        cos_sim_rescaled(src_face_embedding,face_embedding)
+                        for face_embedding in  normalization_image_face_embeddings
+                    ]
+        
+        def _reward_fn(images, prompts, epoch,):
+            print(images)
+            vit_similarities=[0.0 for _ in images]
+            face_similarities=[0.0 for _ in images]
+            rewards=[0.0 for _ in images]
+            scores=[0.0 for _ in images]
+            style_similarities=[0.0 for _ in images]
+            content_similarities=[0.0 for _ in images]
+            time_factor=(float(epoch)/num_epochs)
+            if method_name==DPOK:
+                total_steps=max_train_steps//p_step
+                time_factor=float(epoch)/float(total_steps)
+            if use_vit_content or use_vit_style or use_vit_distance:
+                vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
+                    vit_processor,vit_model,images,False
+                )
+            if use_vit_distance:
+                vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
+                vit_similarities=[ vit_weight * cos_sim_rescaled(vit_src_image_embedding,embedding)
+                        for embedding in vit_embedding_list]
+                wandb_tracker.log({
+                    "vit_distance":np.mean(vit_similarities)
+                })
+            if use_vit_content:
+                vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
+                content_similarities=[
+                    vit_content_weight* cos_sim_rescaled(vit_src_content_embedding,content_embedding)
+                    for content_embedding  in vit_content_embedding_list
+                ]
+                wandb_tracker.log(
+                    {"content_distance":np.mean(content_similarities)}
+                )
+            if use_vit_style:
+                vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
+                style_similarities=[
+                    vit_style_weight * cos_sim_rescaled(vit_src_style_embedding, style_embedding)
+                    for style_embedding in vit_style_embedding_list
                 ]
                 wandb_tracker.log({
-                    "face_distance":np.mean(face_distances)
+                    "style_distance":np.mean(style_similarities)
                 })
-            except (RuntimeError,TypeError):
-                pass
-        if use_img_reward:
-            img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
-            scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/4.0 for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
-            scores=[s*img_reward_weight for s in scores]
+            if use_face_distance:
+                face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
+                try:
+                    image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                    face_similarities=[
+                        face_weight* cos_sim_rescaled(src_face_embedding,face_embedding)
+                        for face_embedding in  image_face_embeddings
+                    ]
+                    wandb_tracker.log({
+                        "face_distance":np.mean(face_similarities)
+                    })
+                except (RuntimeError,TypeError):
+                    pass
+            if use_img_reward:
+                img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
+                scores=[0.5+ ir_model.score( prompt.replace(PLACEHOLDER, subject),image)/4.0 for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
+                scores=[s*img_reward_weight for s in scores]
+                wandb_tracker.log({
+                    "score":np.mean(scores)
+                })
+            rewards=[
+                d+f+s+vs+vc for d,f,s,vs,vc in zip(vit_similarities,face_similarities,scores,style_similarities, content_similarities)
+            ]
             wandb_tracker.log({
-                "score":np.mean(scores)
+                "reward_fn":np.mean(rewards)
             })
-        rewards=[
-            d+f+s+vs+vc for d,f,s,vs,vc in zip(distances,face_distances,scores,style_distances, content_distances)
-        ]
-        wandb_tracker.log({
-            "reward_fn":np.mean(rewards)
-        })
-        if reward_method==REWARD_PARETO:
-            dominant_list=get_dominant_list(distances,scores,face_distances,style_distances, content_distances)
-            for i in range(len(scores)):
-                if i not in dominant_list:
-                    rewards[i]=0.0
-        return rewards
+            if reward_method==REWARD_PARETO:
+                dominant_list=get_dominant_list(vit_similarities,scores,face_similarities,style_similarities, content_similarities)
+                for i in range(len(scores)):
+                    if i not in dominant_list:
+                        rewards[i]=0.0
+            return rewards
+        
+        return _reward_fn
 
     prompt_list= [
         "a photo of a {}",
@@ -362,6 +392,7 @@ def evaluate_one_sample(
             return random.choice(prompt_list).format(entity_name),{}
 
         image_samples_hook=get_image_sample_hook(image_dir)
+        _reward_fn=get_reward_fn(pipeline.sd_pipeline,entity_name)
         def reward_fn(images, prompts, epoch,prompt_metadata):
             return _reward_fn(images, prompts, epoch),{}
         trainer = BetterDDPOTrainer(
@@ -509,6 +540,8 @@ def evaluate_one_sample(
                 input_ids=padded_tokens.input_ids.to(accelerator.device).unsqueeze(0)
             )
             return txt_emb.squeeze(0)
+        
+        _reward_fn=get_reward_fn(pipeline,entity_name)
         def reward_fn(images, prompts, step):
             txt_emb=get_text_emb(prompts)
             return torch.tensor(_reward_fn(images, prompts, step)), txt_emb
