@@ -449,7 +449,7 @@ def evaluate_one_sample(
         num_training_steps=args.max_train_steps
         * args.gradient_accumulation_steps,
         )'''
-        value_function = ValueMulti(50, (4, 64, 64))
+        value_function = ValueMulti(num_inference_steps, (4, 64, 64))
         value_optimizer = torch.optim.AdamW(value_function.parameters(), lr=v_lr)
         value_function, value_optimizer = accelerator.prepare(
         value_function, value_optimizer
@@ -516,7 +516,10 @@ def evaluate_one_sample(
             trainable_list.append(unet)
         policy_steps=train_gradient_accumulation_steps*p_step
         #with accelerator.autocast():
-        def _single_value_epoch(step):
+        def _single_value_epoch(step,v_batch_size=v_batch_size,
+                                v_step=v_step,
+                                g_batch_size=g_batch_size,
+                                num_samples=num_samples):
             unet.eval()
             batch=_get_batch(
                 data_iter_loader,
