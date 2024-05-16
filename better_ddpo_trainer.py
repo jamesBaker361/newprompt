@@ -416,7 +416,7 @@ class BetterDDPOTrainer(BaseTrainer):
             self.config.train_adv_clip_max,
         )
 
-        ratio = torch.exp(log_prob - log_probs)
+        ratio = torch.exp(log_prob - log_probs) #this is the p_{\theta}(x_{t-1}|x_t,c)/p_{\theta-old}(x_{t-1}|x_t,c)
 
         loss = self.loss(advantages, self.config.train_clip_range, ratio)
 
