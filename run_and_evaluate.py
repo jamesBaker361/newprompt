@@ -125,6 +125,7 @@ def evaluate_one_sample(
         initial_vit_content_weight:float,
         final_vit_content_weight:float,
         image_dir:str,
+        value_epochs:int
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -512,7 +513,7 @@ def evaluate_one_sample(
             trainable_list.append(unet)
         policy_steps=train_gradient_accumulation_steps*p_step
         #with accelerator.autocast():
-        for count in range(0, max_train_steps//p_step):
+        def _single_value_epoch():
             unet.eval()
             batch=_get_batch(
                 data_iter_loader,
@@ -542,6 +543,10 @@ def evaluate_one_sample(
                 accelerator.log({"value_loss": total_val_loss}, )
             del total_val_loss
             torch.cuda.empty_cache()
+        for v_epoch in range(value_epochs):
+            _single_value_epoch()
+        for count in range(0, max_train_steps//p_step):
+            _single_value_epoch()
 
             #poloucy learning
             tpfdata = TrainPolicyFuncData()
