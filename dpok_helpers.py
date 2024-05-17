@@ -373,7 +373,8 @@ def _train_policy_func(
 		accelerator,
 		tpfdata,
 		value_function,
-		num_inference_steps:int
+		num_inference_steps:int,
+		use_value_function:bool
 ):
 	"""Trains the policy function."""
 	with torch.no_grad():
@@ -405,7 +406,9 @@ def _train_policy_func(
 			num_inference_steps=num_inference_steps
 	)
 	with torch.no_grad():
-		adv = batch_final_reward.to(device).reshape([p_batch_size, 1]) - value_function(
+		adv = batch_final_reward.to(device).reshape([p_batch_size, 1])
+		if use_value_function:
+			adv =  adv- value_function(
 				batch_state.to(device),
 				batch_txt_emb.to(device),
 				batch_timestep.to(device)).reshape([p_batch_size, 1])

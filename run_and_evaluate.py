@@ -128,7 +128,8 @@ def evaluate_one_sample(
         value_epochs:int,
         normalize_rewards:bool,
         normalize_rewards_individually:bool,
-        n_normalization_images:int
+        n_normalization_images:int,
+        use_value_function:bool
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -611,6 +612,8 @@ def evaluate_one_sample(
                                 v_step=v_step,
                                 g_batch_size=g_batch_size,
                                 num_samples=num_samples):
+            if not use_value_function:
+                return
             unet.eval()
             batch=_get_batch(
                 data_iter_loader,
@@ -670,7 +673,8 @@ def evaluate_one_sample(
                                     accelerator,
                                     tpfdata,
                                     value_function,
-                                    num_inference_steps
+                                    num_inference_steps,
+                                    use_value_function
                                 )
                     else:
                         _train_policy_func(
@@ -689,7 +693,8 @@ def evaluate_one_sample(
                                 accelerator,
                                 tpfdata,
                                 value_function,
-                                num_inference_steps
+                                num_inference_steps,
+                                use_value_function
                         )
                     if accelerator.sync_gradients:
                         norm = accelerator.clip_grad_norm_(trainable_parameters, 1.0)

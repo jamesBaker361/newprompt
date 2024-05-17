@@ -141,6 +141,7 @@ parser.add_argument("--value_epochs",type=int,default=0,help="epochs to train al
 parser.add_argument("--normalize_rewards",action="store_true",help="whether to normalize rewards for ddpo")
 parser.add_argument("--normalize_rewards_individually",action="store_true",help="whether to normalize each individual reward in reward function")
 parser.add_argument("--n_normalization_images",type=int,default=2)
+parser.add_argument("--use_value_function",action="store_true")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -258,7 +259,8 @@ def main(args):
                                                                 args.value_epochs,
                                                                 args.normalize_rewards,
                                                                 args.normalize_rewards_individually,
-                                                                args.n_normalization_images
+                                                                args.n_normalization_images,
+                                                                args.use_value_function
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
