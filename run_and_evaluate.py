@@ -129,7 +129,8 @@ def evaluate_one_sample(
         normalize_rewards:bool,
         normalize_rewards_individually:bool,
         n_normalization_images:int,
-        use_value_function:bool
+        use_value_function:bool,
+        p_lr:bool
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -517,7 +518,7 @@ def evaluate_one_sample(
         #print(trainable_parameters)
         optimizer = torch.optim.AdamW(
             trainable_parameters,
-            lr=0.00001,
+            lr=p_lr,
             betas=(0.9, 0.999),
             weight_decay=0.01,
             eps=0.00000001)

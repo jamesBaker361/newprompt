@@ -85,6 +85,7 @@ parser.add_argument(
     default=10,
     help="batch size of prompts for sampling per gpu",
 )
+parser.add_argument("--p_lr",type=float,default=0.000001)
 parser.add_argument(
     "--reward_weight", type=float, default=10, help="weight of reward loss"
 )
@@ -260,7 +261,8 @@ def main(args):
                                                                 args.normalize_rewards,
                                                                 args.normalize_rewards_individually,
                                                                 args.n_normalization_images,
-                                                                args.use_value_function
+                                                                args.use_value_function,
+                                                                args.p_lr
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
