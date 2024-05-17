@@ -155,6 +155,7 @@ def evaluate_one_sample(
     caption_out=blip_model.generate(**caption_inputs)
     caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
     print("blip caption ",caption)
+    print("subject",subject)
 
     vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
     vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16')
