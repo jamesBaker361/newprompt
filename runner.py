@@ -64,7 +64,7 @@ parser.add_argument(
 parser.add_argument(
     "--p_batch_size",
     type=int,
-    default=2,
+    default=4,
     help=(
         "batch size for policy update per gpu, before gradient accumulation;"
         " total batch size per gpu = gradient_accumulation_steps *"
@@ -82,11 +82,11 @@ parser.add_argument(
 parser.add_argument(
     "--g_batch_size",
     type=int,
-    default=1,
+    default=10,
     help="batch size of prompts for sampling per gpu",
 )
 parser.add_argument(
-    "--reward_weight", type=float, default=100, help="weight of reward loss"
+    "--reward_weight", type=float, default=10, help="weight of reward loss"
 )
 parser.add_argument(
     "--kl_weight", type=float, default=0.01, help="weight of kl loss"
@@ -121,7 +121,7 @@ parser.add_argument(
     help="number of samples to generate per prompt",
 )
 parser.add_argument(
-    "--clip_norm", type=float, default=1.0, help="norm for gradient clipping"
+    "--clip_norm", type=float, default=0.1, help="norm for gradient clipping"
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")

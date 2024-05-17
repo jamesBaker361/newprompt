@@ -515,7 +515,7 @@ def evaluate_one_sample(
         #print(trainable_parameters)
         optimizer = torch.optim.AdamW(
             trainable_parameters,
-            lr=0.001,
+            lr=0.00001,
             betas=(0.9, 0.999),
             weight_decay=0.01,
             eps=0.00000001)
