@@ -204,10 +204,10 @@ def evaluate_one_sample(
                     ]
         try:
             face_mean=np.mean(normalization_face_similarities)
-            face_std=np.mean(normalization_face_similarities)
+            face_std=np.std(normalization_face_similarities)
         except RuntimeError:
-            face_mean=np.mean(normalization_face_similarities.detach().cpu().numpy())
-            face_std=np.mean(normalization_face_similarities.detach().cpu().numpy())
+            face_mean=np.mean([n.detach().cpu().numpy() for n in normalization_face_similarities])
+            face_std=np.std([n.detach().cpu().numpy() for n in normalization_face_similarities])
 
         normalization_image_scores=[ir_model.score(entity_name, image) for image in normalization_image_list]
         image_score_mean=np.mean(normalization_image_scores)
@@ -308,9 +308,14 @@ def evaluate_one_sample(
             rewards=[
                 d+f+s+vs+vc for d,f,s,vs,vc in zip(vit_similarities,face_similarities,scores,style_similarities, content_similarities)
             ]
-            wandb_tracker.log({
-                "reward_fn":np.mean(rewards)
-            })
+            try:
+                wandb_tracker.log({
+                    "reward_fn":np.mean(rewards)
+                })
+            except RuntimeError:
+                wandb_tracker.log({
+                    "reward_fn":np.mean([r.detach().cpu().numpy() for r in rewards])
+                })
             if reward_method==REWARD_PARETO:
                 dominant_list=get_dominant_list(vit_similarities,scores,face_similarities,style_similarities, content_similarities)
                 for i in range(len(scores)):
