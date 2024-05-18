@@ -129,8 +129,8 @@ parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for e
 metrics=["face","img_reward","vit","vit_style","vit_content","mse"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
-    parser.add_argument(f"--initial_{metric}_weight",type=float,default=1.0/len(metrics))
-    parser.add_argument(f"--final_{metric}_weight",type=float,default=1.0/len(metrics))
+    parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
+    parser.add_argument(f"--final_{metric}_weight",type=float,default=0.0)
 parser.add_argument("--project_name",type=str,default="one_shot")
 parser.add_argument("--subject_key",type=str,default="subject")
 parser.add_argument("--label_key",type=str,default="label")
