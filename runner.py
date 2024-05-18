@@ -268,7 +268,7 @@ def main(args):
                                                                 args.ddpo_lr,
                                                                 args.use_mse,
                                                                 args.initial_mse_weight,
-                                                                args.final_mse_weight
+                                                                args.final_mse_weight,
                                                                 args.use_mse_vae
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
