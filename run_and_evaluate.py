@@ -130,7 +130,8 @@ def evaluate_one_sample(
         normalize_rewards_individually:bool,
         n_normalization_images:int,
         use_value_function:bool,
-        p_lr:bool
+        p_lr:bool,
+        ddpo_lr:float
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -422,6 +423,7 @@ def evaluate_one_sample(
             entity_name=PLACEHOLDER
             pipeline.sd_pipeline.tokenizer, pipeline.sd_pipeline.text_encoder,placeholder_token_ids=prepare_textual_inversion(PLACEHOLDER,pipeline.sd_pipeline.tokenizer, pipeline.sd_pipeline.text_encoder)
         config=DDPOConfig(
+            train_learning_rate=ddpo_lr,
             num_epochs=num_epochs,
             train_gradient_accumulation_steps=train_gradient_accumulation_steps,
             sample_num_steps=num_inference_steps,
