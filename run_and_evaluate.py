@@ -42,9 +42,11 @@ from dpok_scheduler import DPOKDDIMScheduler
 from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
 from facenet_pytorch import MTCNN
-from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model
+from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model,rescale_around_zero
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
+from torchvision.transforms import PILToTensor
+import torch.nn.functional as F
 
 def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
@@ -131,7 +133,11 @@ def evaluate_one_sample(
         n_normalization_images:int,
         use_value_function:bool,
         p_lr:bool,
-        ddpo_lr:float
+        ddpo_lr:float,
+        use_mse:bool,
+        initial_mse_weight:float,
+        final_mse_weight:float,
+        use_mse_vae:bool,
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -171,6 +177,30 @@ def evaluate_one_sample(
 
     max_train_steps=samples_per_epoch*num_epochs
     wandb_tracker=accelerator.get_tracker("wandb")
+
+    src_image_tensor=PILToTensor()(src_image)
+    src_image_tensor=rescale_around_zero(src_image_tensor)
+
+    mse_vae=AutoencoderKL.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="vae")
+    src_image_embedding=mse_vae.encode(src_image_tensor)
+    
+
+    def get_mse_from_src(image:Image):
+        image_tensor=PILToTensor()(image)
+        image_tensor=rescale_around_zero(image_tensor)
+
+        if use_mse_vae:
+            image_latents=mse_vae.encode(image_tensor).latent_dist.sample()
+            src_image_latents=src_image_embedding.latent_dist.sample()
+
+            return F.mse_loss(image_latents, src_image_latents,reduction="mean")
+        
+        return F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
+
+
+
+
+
     def get_reward_fn(pipeline:StableDiffusionPipeline,entity_name:str):
         vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
             vit_processor,vit_model,[src_image],False
@@ -215,6 +245,17 @@ def evaluate_one_sample(
         normalization_image_scores=[ir_model.score(entity_name, image) for image in normalization_image_list]
         image_score_mean=np.mean(normalization_image_scores)
         image_score_std=np.std(normalization_image_scores)
+
+        normalization_mse_distances=[
+            get_mse_from_src(image) for image in normalization_image_list
+        ]
+        try:
+            mse_mean=np.mean(normalization_mse_distances)
+            mse_std=np.std(normalization_mse_distances)
+        except RuntimeError:
+            mse_mean=np.mean([n.detach().cpu().numpy() for n in normalization_mse_distances])
+            mse_std=np.std([n.detach().cpu().numpy() for n in normalization_mse_distances])
+
         def _reward_fn(images, prompts, epoch,):
             print(images)
             vit_similarities=[0.0 for _ in images]
@@ -223,6 +264,7 @@ def evaluate_one_sample(
             scores=[0.0 for _ in images]
             style_similarities=[0.0 for _ in images]
             content_similarities=[0.0 for _ in images]
+            mse_distances=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
@@ -308,8 +350,28 @@ def evaluate_one_sample(
                 wandb_tracker.log({
                     "score":np.mean(scores)
                 })
+            if use_mse:
+                mse_reward_weight=initial_mse_weight+((final_mse_weight-initial_mse_weight) *time_factor)
+                mse_distances=[
+                    -1.0* get_mse_from_src(image) for image in images
+                ]
+                if normalize_rewards_individually:
+                    mse_distances=[
+                        (m-mse_mean)/mse_std for m in mse_distances
+                    ]
+                mse_distances=[mse_reward_weight*m for m in mse_distances]
+                try:
+                    wandb_tracker.log({
+                        "mse_distance":np.mean(mse_distances)
+                    })
+                except:
+                    wandb_tracker.log({
+                        "mse_distance":np.mean([m.detach().cpu().numpy() for m in mse_distances])
+                    })
+
             rewards=[
-                d+f+s+vs+vc for d,f,s,vs,vc in zip(vit_similarities,face_similarities,scores,style_similarities, content_similarities)
+                d+f+s+vs+vc+m for d,f,s,vs,vc,m in zip(vit_similarities,face_similarities,
+                                                       scores,style_similarities, content_similarities,mse_distances)
             ]
             try:
                 wandb_tracker.log({

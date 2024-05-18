@@ -126,7 +126,7 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=1.0/len(metrics))
@@ -144,6 +144,7 @@ parser.add_argument("--normalize_rewards_individually",action="store_true",help=
 parser.add_argument("--n_normalization_images",type=int,default=2)
 parser.add_argument("--use_value_function",action="store_true")
 parser.add_argument("--ddpo_lr",type=float,default=3e-4)
+parser.add_argument("--use_mse_vae",action="store_true")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -264,7 +265,11 @@ def main(args):
                                                                 args.n_normalization_images,
                                                                 args.use_value_function,
                                                                 args.p_lr,
-                                                                args.ddpo_lr
+                                                                args.ddpo_lr,
+                                                                args.use_mse,
+                                                                args.initial_mse_weight,
+                                                                args.final_mse_weight
+                                                                args.use_mse_vae
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
