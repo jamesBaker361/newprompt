@@ -489,6 +489,7 @@ def evaluate_one_sample(
         unet=pipeline.unet
         pipeline.scheduler = DPOKDDIMScheduler.from_config(pipeline.scheduler.config)
         print('pipeline.scheduler.config',pipeline.scheduler.config)
+        print('pipeline.scheduler.num_inference_steps',pipeline.scheduler.num_inference_steps)
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
         text_encoder=pipeline.text_encoder
         tokenizer=pipeline.tokenizer
