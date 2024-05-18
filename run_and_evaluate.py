@@ -613,8 +613,7 @@ def evaluate_one_sample(
                                 v_step=v_step,
                                 g_batch_size=g_batch_size,
                                 num_samples=num_samples):
-            if not use_value_function:
-                return
+            
             unet.eval()
             batch=_get_batch(
                 data_iter_loader,
@@ -626,7 +625,8 @@ def evaluate_one_sample(
             )
             _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,step,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
             _trim_buffer(buffer_size, state_dict)
-
+            if not use_value_function:
+                return
             #value learning
             value_optimizer.zero_grad()
             total_val_loss=0.0
