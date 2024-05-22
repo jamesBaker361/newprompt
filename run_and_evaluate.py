@@ -193,10 +193,12 @@ def evaluate_one_sample(
             image_latents=mse_vae.encode(image_tensor.unsqueeze(0)).latent_dist.sample()
             src_image_latents=src_image_embedding.latent_dist.sample()
             #print('src_image_latents.size(),image_latents.size()',src_image_latents.size(),image_latents.size() )
-            return F.mse_loss(image_latents, src_image_latents,reduction="mean")
-        
-        #print('image_tensor.size(),src_image_tensor.size() ',image_tensor.size(),src_image_tensor.size() )
-        return F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
+            loss= F.mse_loss(image_latents, src_image_latents,reduction="mean")
+        else:
+            #print('image_tensor.size(),src_image_tensor.size() ',image_tensor.size(),src_image_tensor.size() )
+            loss= F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
+        torch.cuda.empty_cache()
+        return loss
 
 
 
