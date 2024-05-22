@@ -58,14 +58,14 @@ def cos_sim_rescaled(vector_i,vector_j,return_np=False):
         return result.cpu().numpy()
     return result
 
-def center_crop_to_min_dimension(image:Image)->Image:
+def center_crop_to_min_dimension_and_resize(image:Image)->Image:
     width, height = image.size
     min_dimension = min(width, height)
     left = (width - min_dimension) // 2
     top = (height - min_dimension) // 2
     right = (width + min_dimension) // 2
     bottom = (height + min_dimension) // 2
-    return image.crop((left, top, right, bottom))
+    return image.crop((left, top, right, bottom)).resize((512,512))
 
 def evaluate_one_sample(
         method_name:str,
@@ -141,7 +141,7 @@ def evaluate_one_sample(
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
-    src_image=center_crop_to_min_dimension(src_image)
+    src_image=center_crop_to_min_dimension_and_resize(src_image)
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
     ir_model.eval()
@@ -182,7 +182,7 @@ def evaluate_one_sample(
     src_image_tensor=rescale_around_zero(src_image_tensor)
 
     mse_vae=AutoencoderKL.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="vae")
-    src_image_embedding=mse_vae.encode(src_image_tensor)
+    src_image_embedding=mse_vae.encode(src_image_tensor.unsqueeze(0))
     
 
     def get_mse_from_src(image:Image):
@@ -190,11 +190,12 @@ def evaluate_one_sample(
         image_tensor=rescale_around_zero(image_tensor)
 
         if use_mse_vae:
-            image_latents=mse_vae.encode(image_tensor).latent_dist.sample()
+            image_latents=mse_vae.encode(image_tensor.unsqueeze(0)).latent_dist.sample()
             src_image_latents=src_image_embedding.latent_dist.sample()
-
+            #print('src_image_latents.size(),image_latents.size()',src_image_latents.size(),image_latents.size() )
             return F.mse_loss(image_latents, src_image_latents,reduction="mean")
         
+        #print('image_tensor.size(),src_image_tensor.size() ',image_tensor.size(),src_image_tensor.size() )
         return F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
 
 
