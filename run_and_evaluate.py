@@ -248,7 +248,7 @@ def evaluate_one_sample(
         image_score_std=np.std(normalization_image_scores)
 
         normalization_mse_distances=[
-            get_mse_from_src(image) for image in normalization_image_list
+            get_mse_from_src(image).detach().cpu().numpy() for image in normalization_image_list
         ]
         try:
             mse_mean=np.mean(normalization_mse_distances)
