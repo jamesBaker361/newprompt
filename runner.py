@@ -145,6 +145,9 @@ parser.add_argument("--n_normalization_images",type=int,default=2)
 parser.add_argument("--use_value_function",action="store_true")
 parser.add_argument("--ddpo_lr",type=float,default=3e-4)
 parser.add_argument("--use_mse_vae",action="store_true")
+parser.add_argument("--pretrain",action="store_true")
+parser.add_argument("--pretrain_epochs",type=int,default=10)
+parser.add_argument("--pretrain_steps_per_epoch",type=int,default=64)
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -269,7 +272,10 @@ def main(args):
                                                                 args.use_mse,
                                                                 args.initial_mse_weight,
                                                                 args.final_mse_weight,
-                                                                args.use_mse_vae
+                                                                args.use_mse_vae,
+                                                                args.pretrain,
+                                                                args.pretrain_epochs,
+                                                                args.pretrain_steps_per_epoch
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):

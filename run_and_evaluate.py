@@ -45,6 +45,7 @@ from facenet_pytorch import MTCNN
 from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model,rescale_around_zero
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
+from experiment_helpers.training import train_unet as train_unet_function
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 
@@ -138,6 +139,9 @@ def evaluate_one_sample(
         initial_mse_weight:float,
         final_mse_weight:float,
         use_mse_vae:bool,
+        pretrain:bool,
+        pretrain_epochs: int,
+        pretrain_steps_per_epoch:int
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -483,10 +487,14 @@ def evaluate_one_sample(
             use_lora=use_lora,
             pretrained_model_name="runwayml/stable-diffusion-v1-5"
         )
+
         entity_name=subject
         if train_text_encoder_embeddings:
             entity_name=PLACEHOLDER
             pipeline.sd_pipeline.tokenizer, pipeline.sd_pipeline.text_encoder,placeholder_token_ids=prepare_textual_inversion(PLACEHOLDER,pipeline.sd_pipeline.tokenizer, pipeline.sd_pipeline.text_encoder)
+        
+
+
         config=DDPOConfig(
             train_learning_rate=ddpo_lr,
             num_epochs=num_epochs,
@@ -518,6 +526,32 @@ def evaluate_one_sample(
             pipeline,
             image_samples_hook
         )
+
+        if pretrain:
+            #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
+            pretrain_image_list=[]
+            pretrain_prompt_list=[]
+            for x in range(pretrain_steps_per_epoch):
+                pretrain_image_list.append(src_image)
+                pretrain_prompt_list.append(prompt_list[x%len(prompt_list)])
+            pipeline.sd_pipeline=train_unet_function(
+                pipeline.sd_pipeline,
+                pretrain_epochs,
+                pretrain_image_list,
+                pretrain_prompt_list,
+                trainer.optimizer,
+                False,
+                "prior",
+                batch_size,
+                1.0,
+                text_prompt,
+                trainer.accelerator,
+                num_inference_steps,
+                0.0,
+                True
+            )
+
+
         print(f"acceleerate device {trainer.accelerator.device}")
         tracker=trainer.accelerator.get_tracker("wandb").run
         with accelerator.autocast():
