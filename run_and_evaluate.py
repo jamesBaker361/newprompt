@@ -588,12 +588,12 @@ def evaluate_one_sample(
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
         text_encoder=pipeline.text_encoder
         tokenizer=pipeline.tokenizer
-        pipeline.text_encoder.to(accelerator.device) #, dtype=weight_dtype)
-        pipeline.vae.to(accelerator.device) #, dtype=weight_dtype)
-        pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
-        unet_copy.to(accelerator.device) #, dtype=weight_dtype)
-        pipeline.scheduler.to(accelerator.device) #, weight_dtype)
-        reward_clip_model.to(accelerator.device)
+        pipeline.text_encoder=pipeline.text_encoder.to(accelerator.device) #, dtype=weight_dtype)
+        pipeline.vae=pipeline.vae.to(accelerator.device) #, dtype=weight_dtype)
+        pipeline.unet=pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
+        unet_copy=unet_copy.to(accelerator.device) #, dtype=weight_dtype)
+        pipeline.scheduler=pipeline.scheduler.to(accelerator.device) #, weight_dtype)
+        reward_clip_model=reward_clip_model.to(accelerator.device)
         #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
         #reward_clip_model.to(accelerator.device)
