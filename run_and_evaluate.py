@@ -550,7 +550,7 @@ def evaluate_one_sample(
                 0.0,
                 True
             )
-
+        pipeline.sd_pipeline.scheduler.alphas_cumprod=pipeline.sd_pipeline.scheduler.alphas_cumprod.to("cpu")
 
         print(f"acceleerate device {trainer.accelerator.device}")
         tracker=trainer.accelerator.get_tracker("wandb").run
@@ -619,6 +619,31 @@ def evaluate_one_sample(
             weight_decay=0.01,
             eps=0.00000001)
         
+        if pretrain:
+            #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
+            pretrain_image_list=[]
+            pretrain_prompt_list=[]
+            for x in range(pretrain_steps_per_epoch):
+                pretrain_image_list.append(src_image)
+                pretrain_prompt_list.append(prompt_list[x%len(prompt_list)])
+            pipeline=train_unet_function(
+                pipeline,
+                pretrain_epochs,
+                pretrain_image_list,
+                pretrain_prompt_list,
+                optimizer,
+                False,
+                "prior",
+                batch_size,
+                1.0,
+                text_prompt,
+                accelerator,
+                num_inference_steps,
+                0.0,
+                True
+            )
+
+
         def _my_data_iterator(data,batch_size):
             random.shuffle(data)
             for i in range(0, len(data), batch_size):
