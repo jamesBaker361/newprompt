@@ -49,6 +49,8 @@ from experiment_helpers.training import train_unet as train_unet_function
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 
+torch.autograd.set_detect_anomaly(True)
+
 def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
     try:
