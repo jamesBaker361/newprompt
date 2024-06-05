@@ -594,7 +594,7 @@ def evaluate_one_sample(
         pipeline.vae=pipeline.vae.to(accelerator.device) #, dtype=weight_dtype)
         pipeline.unet=pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
         unet_copy=unet_copy.to(accelerator.device) #, dtype=weight_dtype)
-        pipeline.scheduler=pipeline.scheduler.to(accelerator.device) #, weight_dtype)
+        #pipeline.scheduler=pipeline.scheduler.to(accelerator.device) #, weight_dtype)
         reward_clip_model=reward_clip_model.to(accelerator.device)
         #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
