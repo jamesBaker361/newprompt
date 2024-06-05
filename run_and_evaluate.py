@@ -536,12 +536,13 @@ def evaluate_one_sample(
             for x in range(pretrain_steps_per_epoch):
                 pretrain_image_list.append(src_image)
                 pretrain_prompt_list.append(prompt_list[x%len(prompt_list)])
+            pretrain_optimizer=trainer._setup_optimizer([p for p in pipeline.sd_pipeline.unet.parameters() if p.requires_grad])
             pipeline.sd_pipeline=train_unet_function(
                 pipeline.sd_pipeline,
                 pretrain_epochs,
                 pretrain_image_list,
                 pretrain_prompt_list,
-                trainer.optimizer,
+                pretrain_optimizer,
                 False,
                 "prior",
                 batch_size,
