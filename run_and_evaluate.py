@@ -553,6 +553,8 @@ def evaluate_one_sample(
                 0.0,
                 True
             )
+            torch.cuda.empty_cache()
+            trainer.accelerator.free_memory()
         pipeline.sd_pipeline.scheduler.alphas_cumprod=pipeline.sd_pipeline.scheduler.alphas_cumprod.to("cpu")
 
         print(f"acceleerate device {trainer.accelerator.device}")
