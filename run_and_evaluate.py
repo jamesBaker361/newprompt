@@ -592,13 +592,14 @@ def evaluate_one_sample(
         print('pipeline.scheduler.num_inference_steps',pipeline.scheduler.num_inference_steps)
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
         text_encoder=pipeline.text_encoder
+        vae=pipeline.vae
         tokenizer=pipeline.tokenizer
         
         
         #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
         #reward_clip_model.to(accelerator.device)
-        for model in [reward_clip_model, vit_model, unet_copy]:
+        for model in [reward_clip_model, vit_model, unet_copy,text_encoder, vae]:
             model.requires_grad_(False)
 
         pipeline.setup_parameters(
