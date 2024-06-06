@@ -593,7 +593,7 @@ def evaluate_one_sample(
         unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
         text_encoder=pipeline.text_encoder
         tokenizer=pipeline.tokenizer
-        pipeline.unet=pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
+        
         
         #vit_model.to(accelerator.device)
         #vit_processor.to(accelerator.device)
@@ -608,6 +608,7 @@ def evaluate_one_sample(
                   use_lora_text_encoder,
                   use_lora
         )
+        pipeline.unet=pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
         entity_name=subject
         if train_text_encoder_embeddings:
             entity_name=PLACEHOLDER
@@ -622,6 +623,7 @@ def evaluate_one_sample(
         
         if pretrain:
             #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
+            pipeline.unet,optimizer=accelerator.prepare(pipeline.unet,optimizer)
             pretrain_image_list=[]
             pretrain_prompt_list=[]
             for x in range(pretrain_steps_per_epoch):
