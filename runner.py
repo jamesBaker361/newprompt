@@ -32,6 +32,7 @@ import datetime
 parser=argparse.ArgumentParser()
 
 parser.add_argument("--limit",type=int,default=50)
+parser.add_argument("--start",type=int,default=0)
 parser.add_argument("--method_name",type=str,default=BLIP_DIFFUSION)
 parser.add_argument("--src_dataset",type=str,default="jlbaker361/league-hard-prompt")
 parser.add_argument("--num_inference_steps",type=int,default=30)
@@ -148,6 +149,8 @@ parser.add_argument("--use_mse_vae",action="store_true")
 parser.add_argument("--pretrain",action="store_true")
 parser.add_argument("--pretrain_epochs",type=int,default=10)
 parser.add_argument("--pretrain_steps_per_epoch",type=int,default=64)
+parser.add_argument("--use_default_text",action="store_true")
+parser.add_argument("--default_text",type=str,default="League_of_legends_character")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -194,6 +197,8 @@ def main(args):
     len_dataset=len([r for r in dataset])
     print("len",len_dataset)
     for j,row in enumerate(dataset):
+        if j<args.start:
+            continue
         gc.collect()
         accelerator.free_memory()
         torch.cuda.empty_cache()
@@ -204,6 +209,8 @@ def main(args):
         label=row[args.label_key]
         src_image=row[args.image_key]
         text_prompt=row[args.prompt_key]
+        if args.use_default_text:
+            text_prompt=args.default_text.replace("_"," ")
         metric_dict,evaluation_image_list=evaluate_one_sample(args.method_name,
                                                               src_image,
                                                               text_prompt,
