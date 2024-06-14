@@ -28,6 +28,7 @@ from gpu import print_details
 import gc
 from experiment_helpers.static_globals import METRIC_LIST
 import datetime
+import time
 
 parser=argparse.ArgumentParser()
 
@@ -310,8 +311,13 @@ if __name__=='__main__':
 
     # Print the current date and time
     print("Current date and time:", current_datetime)
+    start = time.time()
     print_details()
     args=parser.parse_args()
     print(args)
     main(args)
+    end=time.time()
+    seconds=end-start
+    hours=seconds/(60*60)
+    print(f"successful training :) time elapsed: {seconds} seconds = {hours} hours")
     print("all done!")
