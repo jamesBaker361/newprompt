@@ -203,7 +203,7 @@ def main(args):
         gc.collect()
         accelerator.free_memory()
         torch.cuda.empty_cache()
-        if j>args.limit:
+        if j>=args.limit:
             print("reached limit")
             break
         subject=row[args.subject_key]
