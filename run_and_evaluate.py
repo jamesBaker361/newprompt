@@ -490,6 +490,8 @@ def evaluate_one_sample(
             pretrained_model_name="runwayml/stable-diffusion-v1-5"
         )
 
+        print("len trainable parameters",len(pipeline.get_trainable_layers()))
+
         entity_name=subject
         if train_text_encoder_embeddings:
             entity_name=PLACEHOLDER
