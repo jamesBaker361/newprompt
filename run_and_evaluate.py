@@ -143,7 +143,8 @@ def evaluate_one_sample(
         use_mse_vae:bool,
         pretrain:bool,
         pretrain_epochs: int,
-        pretrain_steps_per_epoch:int
+        pretrain_steps_per_epoch:int,
+        per_prompt_stat_tracking:bool
 )->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
@@ -401,26 +402,26 @@ def evaluate_one_sample(
 
     prompt_list= [
         "a photo of {}",
-        "a rendering of {}",
+        #"a rendering of {}",
         "a cropped photo of {}",
-        "the photo of {}",
+        #"the photo of {}",
         "a clean photo of {}",
         "a dirty photo of  {}",
         "a dark photo of {}",
-        "my photo of {}",
+        #"my photo of {}",
         "a cool photo of  {}",
         "a close-up photo of {}",
         "a bright photo of {}",
-        "a cropped photo of {}",
-        "a photo of {}",
+        #"a cropped photo of {}",
+        #"a photo of {}",
         "a good photo of {}",
-        "one photo of {}",
-        "a close-up photo of {}",
-        "a rendition of {}",
-        "a clean photo of {}",
-        "a rendition of {}",
+        #"one photo of {}",
+       # "a close-up photo of {}",
+        #"a rendition of {}",
+        #"a clean photo of {}",
+        #"a rendition of {}",
         "a nice photo of{}",
-        "a good photo of {}"
+        #"a good photo of {}"
         ]
     if method_name == BLIP_DIFFUSION:
         blip_diffusion_pipe=BlipDiffusionPipeline.from_pretrained(
@@ -510,6 +511,7 @@ def evaluate_one_sample(
             mixed_precision=mixed_precision,
             tracker_project_name="ddpo-personalization",
             log_with="wandb",
+            per_prompt_stat_tracking=per_prompt_stat_tracking,
             accelerator_kwargs={
                 #"project_dir":args.output_dir
             },
