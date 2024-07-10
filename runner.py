@@ -213,6 +213,7 @@ def main(args):
         text_prompt=row[args.prompt_key]
         if args.use_default_text:
             text_prompt=args.default_text.replace("_"," ")
+            subject=text_prompt
         metric_dict,evaluation_image_list=evaluate_one_sample(args.method_name,
                                                               src_image,
                                                               text_prompt,
