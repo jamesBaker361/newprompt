@@ -420,7 +420,7 @@ def evaluate_one_sample(
         #"a rendition of {}",
         #"a clean photo of {}",
         #"a rendition of {}",
-        "a nice photo of{}",
+        "a nice photo of {}",
         #"a good photo of {}"
         ]
     if method_name == BLIP_DIFFUSION:
