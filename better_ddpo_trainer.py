@@ -99,6 +99,7 @@ class BetterDDPOTrainer(BaseTrainer):
         prompt_function: Callable[[], Tuple[str, Any]],
         sd_pipeline: BetterDefaultDDPOStableDiffusionPipeline,
         image_samples_hook: Optional[Callable[[Any, Any, Any], Any]] = None,
+        subject_key: Optional[str]=""
     ):
         if image_samples_hook is None:
             warn("No image_samples_hook provided; no images will be logged")
@@ -107,6 +108,7 @@ class BetterDDPOTrainer(BaseTrainer):
         self.reward_fn = reward_function
         self.config = config
         self.image_samples_callback = image_samples_hook
+        self.subject_key=subject_key
 
         accelerator_project_config = ProjectConfiguration(**self.config.project_kwargs)
 
@@ -295,6 +297,9 @@ class BetterDDPOTrainer(BaseTrainer):
                 "epoch": epoch,
                 "reward_mean": rewards.mean(),
                 "reward_std": rewards.std(),
+                f"{self.subject_key}_reward": rewards,
+                f"{self.subject_key}_reward_mean": rewards.mean(),
+                f"{self.subject_key}_reward_std": rewards.std(),
             }
         )
 
