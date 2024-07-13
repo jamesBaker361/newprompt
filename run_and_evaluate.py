@@ -11,6 +11,7 @@ os.environ["WANDB_DIR"]="/scratch/jlb638/wandb"
 os.environ["WANDB_CACHE_DIR"]="/scratch/jlb638/wandb_cache"
 from numpy.linalg import norm
 from tqdm.auto import tqdm
+import re
 import torch
 torch.hub.set_dir("/scratch/jlb638/torch_hub_cache")
 from diffusers.pipelines import BlipDiffusionPipeline
@@ -525,12 +526,14 @@ def evaluate_one_sample(
         _reward_fn=get_reward_fn(pipeline.sd_pipeline,entity_name)
         def reward_fn(images, prompts, epoch,prompt_metadata):
             return _reward_fn(images, prompts, epoch),{}
+        subject_key=re.sub(r'\s+', '_', subject)
         trainer = BetterDDPOTrainer(
             config,
             reward_fn,
             prompt_fn,
             pipeline,
-            image_samples_hook
+            image_samples_hook,
+            subject.replace()
         )
 
         if pretrain:
