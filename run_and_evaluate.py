@@ -533,7 +533,7 @@ def evaluate_one_sample(
             prompt_fn,
             pipeline,
             image_samples_hook,
-            subject.replace()
+            subject_key
         )
 
         if pretrain:
