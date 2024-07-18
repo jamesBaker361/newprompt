@@ -145,8 +145,9 @@ def evaluate_one_sample(
         pretrain:bool,
         pretrain_epochs: int,
         pretrain_steps_per_epoch:int,
-        per_prompt_stat_tracking:bool
-)->dict:
+        per_prompt_stat_tracking:bool,
+        label:str,
+        ddpo_save_hf_tag:str)->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
