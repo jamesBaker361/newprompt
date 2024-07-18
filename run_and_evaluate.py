@@ -47,6 +47,7 @@ from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresn
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
 from experiment_helpers.training import train_unet as train_unet_function
+from experiment_helpers.lora_loading import save_pipeline_hf
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 
@@ -575,6 +576,7 @@ def evaluate_one_sample(
                     negative_prompt=NEGATIVE,
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
+        save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
         del pipeline
     elif method_name==DPOK:
         reward_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
