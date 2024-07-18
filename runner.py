@@ -153,6 +153,7 @@ parser.add_argument("--pretrain_steps_per_epoch",type=int,default=64)
 parser.add_argument("--use_default_text",action="store_true")
 parser.add_argument("--default_text",type=str,default="League_of_legends_character")
 parser.add_argument("--per_prompt_stat_tracking",action="store_true")
+parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
