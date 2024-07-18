@@ -291,11 +291,16 @@ def main(args):
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
-            path=f"{args.image_dir}/{label}/{args.method_name}_{i}.png"
-            image.save(path)
-            accelerator.log({
-                f"{label}/{args.method_name}_{i}":wandb.Image(path)
-            })
+            try:
+                accelerator.log({
+                f"{label}/{args.method_name}_{i}":image
+                })
+            except:
+                path=f"{args.image_dir}/{label}/{args.method_name}_{i}.png"
+                image.save(path)
+                accelerator.log({
+                    f"{label}/{args.method_name}_{i}":wandb.Image(path)
+                })
         print(f"after {j} samples:")
         for metric,value in metric_dict.items():
             aggregate_dict[metric].append(value)
