@@ -32,8 +32,8 @@ from chosen_helpers import get_hidden_states,get_best_cluster_kmeans,get_init_di
 import gc
 from dvlab.rival.test_variation_sdv1 import make_eval_image
 from instant.infer import instant_generate_one_sample
-from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
-from better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
+#from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
+#from better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
 from text_embedding_helpers import prepare_textual_inversion
 from trl import DDPOConfig
 from pareto import get_dominant_list
@@ -48,6 +48,8 @@ from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
 from experiment_helpers.training import train_unet as train_unet_function
 from experiment_helpers.lora_loading import save_pipeline_hf
+from experiment_helpers.better_ddpo_pipeline import BetterDefaultDDPOStableDiffusionPipeline
+from experiment_helpers.better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 
