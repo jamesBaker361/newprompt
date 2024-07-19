@@ -138,7 +138,6 @@ parser.add_argument("--subject_key",type=str,default="subject")
 parser.add_argument("--label_key",type=str,default="label")
 parser.add_argument("--image_key",type=str,default="splash")
 parser.add_argument("--prompt_key",type=str,default="optimal_prompt")
-parser.add_argument("--keyword",type=str,default="default")
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/oneshot")
 parser.add_argument("--value_epochs",type=int,default=0,help="epochs to train alue function before training unet for dpok")
 parser.add_argument("--normalize_rewards",action="store_true",help="whether to normalize rewards for ddpo")
@@ -287,7 +286,9 @@ def main(args):
                                                                 args.pretrain,
                                                                 args.pretrain_epochs,
                                                                 args.pretrain_steps_per_epoch,
-                                                                args.per_prompt_stat_tracking
+                                                                args.per_prompt_stat_tracking,
+                                                                label,
+                                                                args.ddpo_save_hf_tag
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
