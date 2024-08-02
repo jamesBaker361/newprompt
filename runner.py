@@ -153,6 +153,8 @@ parser.add_argument("--use_default_text",action="store_true")
 parser.add_argument("--default_text",type=str,default="League_of_legends_character")
 parser.add_argument("--per_prompt_stat_tracking",action="store_true")
 parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
+parser.add_argument("--use_fashion_clip",action="store_true")
+parser.add_argument("--use_fashion_clip_segmented",action="store_true")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -288,7 +290,9 @@ def main(args):
                                                                 args.pretrain_steps_per_epoch,
                                                                 args.per_prompt_stat_tracking,
                                                                 label,
-                                                                args.ddpo_save_hf_tag
+                                                                args.ddpo_save_hf_tag,
+                                                                args.use_fashion_clip,
+                                                                args.use_fashion_clip_segmented
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):

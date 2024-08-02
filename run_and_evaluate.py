@@ -50,6 +50,7 @@ from experiment_helpers.training import train_unet as train_unet_function
 from experiment_helpers.lora_loading import save_pipeline_hf
 from experiment_helpers.better_ddpo_pipeline import BetterDefaultDDPOStableDiffusionPipeline
 from experiment_helpers.better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
+from experiment_helpers.clothing import clothes_segmentation, get_segmentation_model
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 
@@ -150,7 +151,9 @@ def evaluate_one_sample(
         pretrain_steps_per_epoch:int,
         per_prompt_stat_tracking:bool,
         label:str,
-        ddpo_save_hf_tag:str)->dict:
+        ddpo_save_hf_tag:str,
+        use_fashion_clip:bool,
+        use_fashion_clip_segmented:bool)->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
@@ -211,6 +214,7 @@ def evaluate_one_sample(
             loss= F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
         torch.cuda.empty_cache()
         return loss
+
 
 
 
