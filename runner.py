@@ -128,7 +128,7 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
@@ -153,7 +153,6 @@ parser.add_argument("--use_default_text",action="store_true")
 parser.add_argument("--default_text",type=str,default="League_of_legends_character")
 parser.add_argument("--per_prompt_stat_tracking",action="store_true")
 parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
-parser.add_argument("--use_fashion_clip",action="store_true")
 parser.add_argument("--use_fashion_clip_segmented",action="store_true")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
@@ -292,7 +291,9 @@ def main(args):
                                                                 label,
                                                                 args.ddpo_save_hf_tag,
                                                                 args.use_fashion_clip,
-                                                                args.use_fashion_clip_segmented
+                                                                args.use_fashion_clip_segmented,
+                                                                args.inital_fashion_clip_weight,
+                                                                args.final_fashion_clip_weight
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):

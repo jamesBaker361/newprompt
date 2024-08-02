@@ -153,7 +153,9 @@ def evaluate_one_sample(
         label:str,
         ddpo_save_hf_tag:str,
         use_fashion_clip:bool,
-        use_fashion_clip_segmented:bool)->dict:
+        use_fashion_clip_segmented:bool,
+        initial_fashion_clip_weight:float,
+        final_fashion_clip_weight:float)->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
@@ -217,10 +219,33 @@ def evaluate_one_sample(
 
 
 
+    def get_fashion_embedding(fashion_src:Image.Image,fashion_clip_processor:CLIPProcessor,fashion_clip_model:CLIPModel)-> np.ndarray:
+        fashion_clip_inputs=fashion_clip_processor(text=[" "], images=[fashion_src], return_tensors="pt", padding=True)
+        fashion_clip_inputs["input_ids"]=fashion_clip_inputs["input_ids"].to(fashion_clip_model.device)
+        fashion_clip_inputs["pixel_values"]=fashion_clip_inputs["pixel_values"].to(fashion_clip_model.device)
+        fashion_clip_inputs["attention_mask"]=fashion_clip_inputs["attention_mask"].to(fashion_clip_model.device)
+        try:
+            fashion_clip_inputs["position_ids"]= fashion_clip_inputs["position_ids"].to(fashion_clip_model.device)
+        except:
+            pass
 
-
+        fashion_clip_outputs = fashion_clip_model(**fashion_clip_inputs)
+        fashion_embedding=fashion_clip_outputs.image_embeds.detach().cpu().numpy()[0]
+        return fashion_embedding
 
     def get_reward_fn(pipeline:StableDiffusionPipeline,entity_name:str):
+        
+        fashion_src=src_image
+        if use_fashion_clip_segmented:
+            segmentation_model=get_segmentation_model(accelerator.device,accelerator.dtype)
+            fashion_src=clothes_segmentation(src_image,segmentation_model)
+
+        if use_fashion_clip or use_fashion_clip_segmented:
+            fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
+            fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
+            fashion_clip_model.eval()
+            
+        fashion_src_embedding=get_fashion_embedding(fashion_src,fashion_clip_processor, fashion_clip_model)
         vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
             vit_processor,vit_model,[src_image],False
         )
@@ -284,6 +309,7 @@ def evaluate_one_sample(
             style_similarities=[0.0 for _ in images]
             content_similarities=[0.0 for _ in images]
             mse_distances=[0.0 for _ in images]
+            fashion_similarities=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
@@ -387,10 +413,30 @@ def evaluate_one_sample(
                     wandb_tracker.log({
                         "mse_distance":np.mean([m.detach().cpu().numpy() for m in mse_distances])
                     })
+            
+            if use_fashion_clip:
+                fashion_similarities=[
+                    cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image)) for image in images
+                ]
+            elif use_fashion_clip_segmented:
+                segmented_images=[
+                    clothes_segmentation(image,segmentation_model,0) for image in images
+                ]
+                fashion_similarities=[
+                    cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(seg_image)) for seg_image in segmented_images
+                ]
+            if use_fashion_clip or use_fashion_clip_segmented:
+                fashion_clip_weight=initial_fashion_clip_weight+((final_fashion_clip_weight-initial_fashion_clip_weight) * time_factor)
+                fashion_similarities=[fashion_clip_weight * f for f in fashion_similarities]
+                wandb_tracker.log({
+                    "fashion_distance":np.mean(fashion_similarities)
+                })
+                
+
 
             rewards=[
-                d+f+s+vs+vc+m for d,f,s,vs,vc,m in zip(vit_similarities,face_similarities,
-                                                       scores,style_similarities, content_similarities,mse_distances)
+                d+f+s+vs+vc+m,fas for d,f,s,vs,vc,m,fas in zip(vit_similarities,face_similarities,
+                                                       scores,style_similarities, content_similarities,mse_distances,fashion_similarities)
             ]
             try:
                 wandb_tracker.log({
