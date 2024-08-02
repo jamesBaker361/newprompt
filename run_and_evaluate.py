@@ -435,7 +435,7 @@ def evaluate_one_sample(
 
 
             rewards=[
-                d+f+s+vs+vc+m,fas for d,f,s,vs,vc,m,fas in zip(vit_similarities,face_similarities,
+                d+f+s+vs+vc+m+fas for d,f,s,vs,vc,m,fas in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,mse_distances,fashion_similarities)
             ]
             try:
