@@ -93,7 +93,8 @@ for link in links:
                         #img.save(file_name)
                 #print(f"Downloaded {file_name}")
                         limit-=1
-                        if limit <=0:
+                        if limit %10==0:
                             Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data")
                             load_dataset("jlbaker361/new_league_data")
+                        if limit<=0:
                             exit()
