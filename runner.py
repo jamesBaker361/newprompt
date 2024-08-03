@@ -211,13 +211,10 @@ def main(args):
         subject=row[args.subject_key]
         label=row[args.label_key]
         src_image=row[args.image_key]
-        text_prompt=row[args.prompt_key]
         if args.use_default_text:
-            text_prompt=args.default_text.replace("_"," ")
-            subject=text_prompt
+            subject=args.default_text.replace("_"," ")
         metric_dict,evaluation_image_list=evaluate_one_sample(args.method_name,
                                                               src_image,
-                                                              text_prompt,
                                                               evaluation_prompt_list,
                                                               accelerator,subject,
                                                               args.num_inference_steps,
@@ -292,7 +289,7 @@ def main(args):
                                                                 args.ddpo_save_hf_tag,
                                                                 args.use_fashion_clip,
                                                                 args.use_fashion_clip_segmented,
-                                                                args.inital_fashion_clip_weight,
+                                                                args.initial_fashion_clip_weight,
                                                                 args.final_fashion_clip_weight
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)

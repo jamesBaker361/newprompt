@@ -78,7 +78,6 @@ def center_crop_to_min_dimension_and_resize(image:Image)->Image:
 def evaluate_one_sample(
         method_name:str,
         src_image: Image,
-        text_prompt:str,
         evaluation_prompt_list:list,
         accelerator:Accelerator,
         subject:str,
@@ -613,7 +612,7 @@ def evaluate_one_sample(
                 "prior",
                 batch_size,
                 1.0,
-                text_prompt,
+                subject,
                 trainer.accelerator,
                 num_inference_steps,
                 0.0,
