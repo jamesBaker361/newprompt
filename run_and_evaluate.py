@@ -578,7 +578,7 @@ def evaluate_one_sample(
         )
         
         def prompt_fn():
-            return random.choice(prompt_list).format(entity_name),{}
+            return entity_name,{}
 
         image_samples_hook=get_image_sample_hook(image_dir)
         _reward_fn=get_reward_fn(pipeline.sd_pipeline,entity_name)
