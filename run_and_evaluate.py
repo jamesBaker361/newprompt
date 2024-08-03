@@ -237,8 +237,8 @@ def evaluate_one_sample(
         
         fashion_src=src_image
         if use_fashion_clip_segmented:
-            segmentation_model=get_segmentation_model(accelerator.device,accelerator.dtype)
-            fashion_src=clothes_segmentation(src_image,segmentation_model)
+            segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
+            fashion_src=clothes_segmentation(src_image,segmentation_model,0)
 
         if use_fashion_clip or use_fashion_clip_segmented:
             fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
@@ -416,14 +416,14 @@ def evaluate_one_sample(
             
             if use_fashion_clip:
                 fashion_similarities=[
-                    cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image)) for image in images
+                    cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model)) for image in images
                 ]
             elif use_fashion_clip_segmented:
                 segmented_images=[
                     clothes_segmentation(image,segmentation_model,0) for image in images
                 ]
                 fashion_similarities=[
-                    cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(seg_image)) for seg_image in segmented_images
+                    cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(seg_image,fashion_clip_processor,fashion_clip_model)) for seg_image in segmented_images
                 ]
             if use_fashion_clip or use_fashion_clip_segmented:
                 fashion_clip_weight=initial_fashion_clip_weight+((final_fashion_clip_weight-initial_fashion_clip_weight) * time_factor)
@@ -478,6 +478,11 @@ def evaluate_one_sample(
         "a nice photo of {}",
         #"a good photo of {}"
         ]
+    weight_dtype={
+            "no":torch.float32,
+            "fp16":torch.float16,
+            "bf16":torch.bfloat16
+        }[accelerator.mixed_precision]
     if method_name == BLIP_DIFFUSION:
         blip_diffusion_pipe=BlipDiffusionPipeline.from_pretrained(
             "Salesforce/blipdiffusion", torch_dtype=torch.float32)
@@ -630,386 +635,6 @@ def evaluate_one_sample(
         ]
         save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
         del pipeline
-    elif method_name==DPOK:
-        reward_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-        reward_processor = CLIPProcessor.from_pretrained(
-            "openai/clip-vit-large-patch14"
-        )
-        reward_tokenizer = CLIPTokenizer.from_pretrained(
-            "openai/clip-vit-large-patch14"
-        )
-        weight_dtype={
-            "no":torch.float32,
-            "fp16":torch.float16,
-            "bf16":torch.bfloat16
-        }[accelerator.mixed_precision]
-        pipeline=DPOKPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", #torch_dtype=weight_dtype
-        )
-        pipeline("do this to help it instantiate things",num_inference_steps=1)
-        pipeline.safety_checker=None
-        unet=pipeline.unet
-        pipeline.scheduler = DPOKDDIMScheduler.from_config(pipeline.scheduler.config)
-        print('pipeline.scheduler.config',pipeline.scheduler.config)
-        print('pipeline.scheduler.num_inference_steps',pipeline.scheduler.num_inference_steps)
-        unet_copy = UNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5",subfolder="unet",)
-        text_encoder=pipeline.text_encoder
-        vae=pipeline.vae
-        tokenizer=pipeline.tokenizer
-        
-        
-        #vit_model.to(accelerator.device)
-        #vit_processor.to(accelerator.device)
-        #reward_clip_model.to(accelerator.device)
-        for model in [reward_clip_model, vit_model, unet_copy,text_encoder, vae]:
-            model.requires_grad_(False)
-
-        pipeline.setup_parameters(
-            train_text_encoder,
-                 train_text_encoder_embeddings,
-                 train_unet,
-                  use_lora_text_encoder,
-                  use_lora
-        )
-        pipeline.unet=pipeline.unet.to(accelerator.device) #, dtype=weight_dtype)
-        entity_name=subject
-        if train_text_encoder_embeddings:
-            entity_name=PLACEHOLDER
-        trainable_parameters=pipeline.get_trainable_layers()
-        #print(trainable_parameters)
-        optimizer = torch.optim.AdamW(
-            trainable_parameters,
-            lr=p_lr,
-            betas=(0.9, 0.999),
-            weight_decay=0.01,
-            eps=0.00000001)
-        
-        if pretrain:
-            #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
-            pipeline.unet,optimizer=accelerator.prepare(pipeline.unet,optimizer)
-            pretrain_image_list=[]
-            pretrain_prompt_list=[]
-            for x in range(pretrain_steps_per_epoch):
-                pretrain_image_list.append(src_image)
-                pretrain_prompt_list.append(prompt_list[x%len(prompt_list)])
-            pipeline=train_unet_function(
-                pipeline,
-                pretrain_epochs,
-                pretrain_image_list,
-                pretrain_prompt_list,
-                optimizer,
-                False,
-                "prior",
-                batch_size,
-                1.0,
-                text_prompt,
-                accelerator,
-                num_inference_steps,
-                0.0,
-                True
-            )
-        unet_copy=unet_copy.to(accelerator.device) #, dtype=weight_dtype)
-        #pipeline.scheduler=pipeline.scheduler.to(accelerator.device) #, weight_dtype)
-        reward_clip_model=reward_clip_model.to(accelerator.device)
-        pipeline.text_encoder=pipeline.text_encoder.to(accelerator.device) #, dtype=weight_dtype)
-        pipeline.vae=pipeline.vae.to(accelerator.device) #, dtype=weight_dtype)
-
-
-        def _my_data_iterator(data,batch_size):
-            random.shuffle(data)
-            for i in range(0, len(data), batch_size):
-                batch = data[i : i + batch_size]
-                yield batch
-
-        data_iterator=_my_data_iterator([p.format(entity_name) for p in prompt_list], g_batch_size)
-        data_iter_loader = iter(data_iterator)
-
-
-        '''lr_scheduler = get_scheduler(
-        args.lr_scheduler,
-        optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
-        num_training_steps=args.max_train_steps
-        * args.gradient_accumulation_steps,
-        )'''
-        value_function = ValueMulti(num_inference_steps, (4, 64, 64))
-        value_optimizer = torch.optim.AdamW(value_function.parameters(), lr=v_lr)
-        value_function, value_optimizer = accelerator.prepare(
-        value_function, value_optimizer
-        )
-        trainable_parameters, optimizer, data_iter_loader = accelerator.prepare(
-        trainable_parameters, optimizer, data_iter_loader )
-
-        total_batch_size = (
-        batch_size
-        * accelerator.num_processes
-            * train_gradient_accumulation_steps)
-        
-
-
-          # Only show the progress bar once on each machine.
-        progress_bar = tqdm(
-            range(0, max_train_steps),
-            disable=not accelerator.is_local_main_process,
-        )
-        progress_bar.set_description("Steps")
-
-        def _map_cpu(x):
-            return x.cpu()
-        
-        state_dict = {}
-        state_dict["prompt"] = []
-        state_dict["state"] = _map_cpu(torch.FloatTensor().to(weight_dtype))
-        state_dict["next_state"] = _map_cpu(torch.FloatTensor().to(weight_dtype))
-        state_dict["timestep"] = _map_cpu(torch.LongTensor())
-        state_dict["final_reward"] = _map_cpu(torch.FloatTensor().to(weight_dtype))
-        state_dict["unconditional_prompt_embeds"] = _map_cpu(
-            torch.FloatTensor().to(weight_dtype)
-        )
-        state_dict["guided_prompt_embeds"] = _map_cpu(
-            torch.FloatTensor().to(weight_dtype)
-        )
-        state_dict["txt_emb"] = _map_cpu(torch.FloatTensor().to(weight_dtype))
-        state_dict["log_prob"] = _map_cpu(torch.FloatTensor().to(weight_dtype))
-
-        def get_text_emb(prompts):
-            inputs = reward_tokenizer(
-                    prompts,
-                    max_length=tokenizer.model_max_length,
-                    padding="do_not_pad",
-                    truncation=True,
-            )
-            input_ids = inputs.input_ids
-            padded_tokens = reward_tokenizer.pad(
-                {"input_ids": input_ids}, padding=True, return_tensors="pt"
-            )
-
-            txt_emb = reward_clip_model.get_text_features(
-                input_ids=padded_tokens.input_ids.to(accelerator.device).unsqueeze(0)
-            )
-            return txt_emb.squeeze(0)
-        
-        _reward_fn=get_reward_fn(pipeline,entity_name)
-        def reward_fn(images, prompts, step):
-            txt_emb=get_text_emb(prompts)
-            return torch.tensor(_reward_fn(images, prompts, step)), txt_emb
-        
-        trainable_list=[]
-        if train_text_encoder or train_text_encoder_embeddings:
-            trainable_list.append(text_encoder)
-        if train_unet:
-            trainable_list.append(unet)
-        policy_steps=train_gradient_accumulation_steps*p_step
-        #with accelerator.autocast():
-        def _single_value_epoch(step,v_batch_size=v_batch_size,
-                                v_step=v_step,
-                                g_batch_size=g_batch_size,
-                                num_samples=num_samples):
-            
-            unet.eval()
-            batch=_get_batch(
-                data_iter_loader,
-                _my_data_iterator,
-                prompt_list,
-                g_batch_size,
-                num_samples,
-                accelerator
-            )
-            _collect_rollout(g_step, pipeline,False,batch, reward_fn,state_dict,step,num_inference_steps) #def _collect_rollout(g_step, pipe, is_ddp, batch, calculate_reward, state_dict):
-            _trim_buffer(buffer_size, state_dict)
-            if not use_value_function:
-                return
-            #value learning
-            value_optimizer.zero_grad()
-            total_val_loss=0.0
-            v_batch_size=min(v_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
-            for _v in range(v_step):
-                if _v< v_step-1:
-                    with accelerator.no_sync(value_function):
-                        total_val_loss+=_train_value_func(value_function, state_dict, accelerator, v_batch_size,v_step)
-                else:
-                    total_val_loss+=_train_value_func(value_function, state_dict, accelerator, v_batch_size,v_step)
-            value_optimizer.step()
-            value_optimizer.zero_grad()
-            if accelerator.is_main_process:
-                print("value_loss", total_val_loss)
-                accelerator.log({"value_loss": total_val_loss}, )
-            del total_val_loss
-            torch.cuda.empty_cache()
-        for v_epoch in range(value_epochs):
-            _single_value_epoch(0)
-        for count in range(0, max_train_steps//p_step):
-            _single_value_epoch(count)
-
-            #poloucy learning
-            tpfdata = TrainPolicyFuncData()
-            p_batch_size=min(p_batch_size,num_inference_steps) #otherwise we will have to sample_size > population
-            for _p in range(p_step):
-                optimizer.zero_grad()
-                for accum_step in range(train_gradient_accumulation_steps):
-                    if accum_step<train_gradient_accumulation_steps-1:
-                        with accelerator.no_sync(unet):
-                            with accelerator.no_sync(text_encoder):
-                                _train_policy_func(
-                                    p_batch_size,
-                                    ratio_clip,
-                                    reward_weight,
-                                    kl_warmup,
-                                    kl_weight,
-                                    train_gradient_accumulation_steps,
-                                    state_dict,
-                                    pipeline,
-                                    unet_copy,
-                                    False,
-                                    count,
-                                    policy_steps,
-                                    accelerator,
-                                    tpfdata,
-                                    value_function,
-                                    num_inference_steps,
-                                    use_value_function
-                                )
-                    else:
-                        _train_policy_func(
-                                p_batch_size,
-                                ratio_clip,
-                                reward_weight,
-                                kl_warmup,
-                                kl_weight,
-                                train_gradient_accumulation_steps,
-                                state_dict,
-                                pipeline,
-                                unet_copy,
-                                False,
-                                count,
-                                policy_steps,
-                                accelerator,
-                                tpfdata,
-                                value_function,
-                                num_inference_steps,
-                                use_value_function
-                        )
-                    if accelerator.sync_gradients:
-                        norm = accelerator.clip_grad_norm_(trainable_parameters, 1.0)
-                    tpfdata.tot_grad_norm += norm.item() / p_step
-                    optimizer.step()
-                    if accelerator.is_main_process:
-                        print(f"count: [{count} / {max_train_steps // p_step}]")
-                        print("train_reward", torch.mean(state_dict["final_reward"]).item())
-                        accelerator.log(
-                        {"train_reward": torch.mean(state_dict["final_reward"]).item()})
-                        print("grad norm", tpfdata.tot_grad_norm, "ratio", tpfdata.tot_ratio)
-                        print("kl", tpfdata.tot_kl, "p_loss", tpfdata.tot_p_loss)
-                        accelerator.log({"grad norm": tpfdata.tot_grad_norm}, )
-                        accelerator.log({"ratio": tpfdata.tot_ratio}, )
-                        accelerator.log({"kl": tpfdata.tot_kl}, )
-                        accelerator.log({"p_loss": tpfdata.tot_p_loss}, )
-                    torch.cuda.empty_cache()
-            validation_prompt_list=[entity_name]
-            generator=torch.Generator(device=accelerator.device).manual_seed(123)
-            validation_image_list=[pipeline(validation_prompt,num_inference_steps=num_inference_steps,
-                    negative_prompt=NEGATIVE,
-                    generator=generator,
-                    safety_checker=None).images[0] for validation_prompt in validation_prompt_list ]
-            for i,image in enumerate(validation_image_list):
-                path=f"{image_dir}/{i}.png"
-                image.save(path)
-                try:
-                    accelerator.log({
-                        f"validation_img_dpok":wandb.Image(path)
-                    })
-                except:
-                    print(f"couldnt find {path}")
-        evaluation_image_list=[
-            pipeline(evaluation_prompt.format(entity_name),
-                    num_inference_steps=num_inference_steps,
-                    negative_prompt=NEGATIVE,
-                    safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
-        ]
-        del unet, unet_copy, value_function, value_optimizer, optimizer, state_dict,reward_clip_model, vit_model, data_iterator,pipeline
-
-    
-    elif method_name in [CHOSEN,CHOSEN_K,CHOSEN_K_STYLE,CHOSEN_STYLE]:
-        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
-        vit_model = ViTModel.from_pretrained('facebook/dino-vitb16')
-        pipeline=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5",safety_checker=None)
-        unet=pipeline.unet
-        vae=pipeline.vae
-        tokenizer=pipeline.tokenizer
-        text_encoder=pipeline.text_encoder
-        for model in [vae,unet,text_encoder]:
-            model.requires_grad_(False)
-        config = LoraConfig(
-            r=4,
-            lora_alpha=16,
-            target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-            lora_dropout=0.0,
-            bias="none")
-        unet = get_peft_model(unet, config)
-        unet.train()
-        unet.print_trainable_parameters()
-        trainable_parameters=[]
-        for model in [vae,unet,text_encoder]:
-            trainable_parameters+=[p for p in model.parameters() if p.requires_grad]
-        optimizer = torch.optim.AdamW(
-            trainable_parameters,
-            lr=0.0001,
-            betas=(0.9, 0.999),
-            weight_decay=0.01,
-            eps=0.00000001)
-        unet,text_encoder,vae,tokenizer = accelerator.prepare(
-            unet,text_encoder,vae,tokenizer
-        )
-        n_clusters=n_img_chosen // target_cluster_size
-        if method_name in [CHOSEN_K, CHOSEN]:
-            image_list=[
-                pipeline(text_prompt,negative_prompt=NEGATIVE,num_inference_steps=num_inference_steps,safety_checker=None).images[0] for _ in range(n_img_chosen)]
-        elif method_name in [CHOSEN_K_STYLE, CHOSEN_STYLE]:
-            image_list=[
-                generate_with_style(pipeline,text_prompt=text_prompt,negative_prompt=NEGATIVE,num_inference_steps=num_inference_steps,src_image=src_image) for _ in range(n_img_chosen)
-            ]
-        print("generated initial sets of images")
-        last_hidden_states=get_hidden_states(image_list,vit_processor,vit_model)
-        init_dist=get_init_dist(last_hidden_states)
-        pairwise_distances=init_dist
-        iteration=0
-        while pairwise_distances>=convergence_scale*init_dist and iteration<10:
-            iteration+=1
-            if method_name in [CHOSEN, CHOSEN_STYLE]:
-                valid_image_list, centroid_distances=get_best_cluster_kmeans(image_list, n_clusters, min_cluster_size, vit_processor, vit_model)
-            elif method_name in [CHOSEN_K, CHOSEN_K_STYLE]:
-                valid_image_list=get_top_k(src_image, image_list, vit_processor, vit_model,target_cluster_size)
-            text_prompt_list=[text_prompt]*len(valid_image_list)
-            pipeline=loop(
-                valid_image_list,
-                text_prompt_list,
-                pipeline,
-                0,
-                optimizer,
-                accelerator,
-                1,
-                num_inference_steps,
-                size=512,
-                train_batch_size=2,
-                noise_offset=0.0,
-                max_grad_norm=1.0
-            )
-            if method_name in [CHOSEN_K, CHOSEN]:
-                image_list=[
-                    pipeline(text_prompt,negative_prompt=NEGATIVE,num_inference_steps=num_inference_steps,safety_checker=None).images[0] for _ in range(n_img_chosen)]
-            elif method_name in [CHOSEN_K_STYLE, CHOSEN_STYLE]:
-                image_list=[
-                    generate_with_style(pipeline,text_prompt=text_prompt,negative_prompt=NEGATIVE,num_inference_steps=num_inference_steps,src_image=src_image) for _ in range(n_img_chosen)
-                ]
-            last_hidden_states=get_hidden_states(image_list,vit_processor,vit_model)
-            init_dist=get_init_dist(last_hidden_states)
-            pairwise_distances=init_dist
-        evaluation_image_list=[
-            pipeline(evaluation_prompt.format(text_prompt),
-                    num_inference_steps=num_inference_steps,
-                    negative_prompt=NEGATIVE,
-                    safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
-        ]
     else:
         message=f"no support for {method_name} try one of "+" ".join(METHOD_LIST)
         raise Exception(message)
