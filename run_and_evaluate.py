@@ -238,11 +238,9 @@ def evaluate_one_sample(
         if use_fashion_clip_segmented:
             segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
             fashion_src=clothes_segmentation(src_image,segmentation_model,0)
-
-        if use_fashion_clip or use_fashion_clip_segmented:
-            fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
-            fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
-            fashion_clip_model.eval()
+        fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
+        fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
+        fashion_clip_model.eval()
             
         fashion_src_embedding=get_fashion_embedding(fashion_src,fashion_clip_processor, fashion_clip_model)
         vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
