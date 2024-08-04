@@ -248,53 +248,7 @@ def evaluate_one_sample(
     vit_src_image_embedding=vit_src_image_embedding_list[0]
     vit_src_style_embedding=vit_src_style_embedding_list[0]
     vit_src_content_embedding=vit_src_content_embedding_list[0]
-    normalization_image_list=[pipeline(entity_name,num_inference_steps=num_inference_steps,
-                negative_prompt=NEGATIVE,
-                safety_checker=None).images[0] for _ in range(n_normalization_images)]
-    normalization_vit_embedding_list,normalization_vit_style_embedding_list, normalization_vit_content_embedding_list=get_vit_embeddings(
-                vit_processor,vit_model,normalization_image_list,False
-            )
-    normalization_vit_similarities=[cos_sim_rescaled(vit_src_image_embedding,embedding)
-                    for embedding in normalization_vit_embedding_list]
-    vit_mean=np.mean(normalization_vit_similarities)
-    vit_std=np.std(normalization_vit_similarities)
-    normalization_style_similarities=[
-                cos_sim_rescaled(vit_src_style_embedding, style_embedding)
-                for style_embedding in normalization_vit_style_embedding_list
-            ]
-    vit_style_mean=np.mean(normalization_style_similarities)
-    vit_style_std=np.std(normalization_style_similarities)
-    normalization_content_similarities=[
-                cos_sim_rescaled(vit_src_content_embedding,content_embedding)
-                for content_embedding  in normalization_vit_content_embedding_list
-            ]
-    vit_content_mean=np.mean(normalization_content_similarities)
-    vit_content_std=np.std(normalization_content_similarities)
-    normalization_image_face_embeddings=get_face_embedding(normalization_image_list,mtcnn,iresnet,face_margin)
-    normalization_face_similarities=[
-                    cos_sim_rescaled(src_face_embedding,face_embedding)
-                    for face_embedding in  normalization_image_face_embeddings
-                ]
-    try:
-        face_mean=np.mean(normalization_face_similarities)
-        face_std=np.std(normalization_face_similarities)
-    except RuntimeError:
-        face_mean=np.mean([n.detach().cpu().numpy() for n in normalization_face_similarities])
-        face_std=np.std([n.detach().cpu().numpy() for n in normalization_face_similarities])
-
-    normalization_image_scores=[ir_model.score(entity_name, image) for image in normalization_image_list]
-    image_score_mean=np.mean(normalization_image_scores)
-    image_score_std=np.std(normalization_image_scores)
-
-    normalization_mse_distances=[
-        get_mse_from_src(image).detach().cpu().numpy() for image in normalization_image_list
-    ]
-    try:
-        mse_mean=np.mean(normalization_mse_distances)
-        mse_std=np.std(normalization_mse_distances)
-    except RuntimeError:
-        mse_mean=np.mean([n.detach().cpu().numpy() for n in normalization_mse_distances])
-        mse_std=np.std([n.detach().cpu().numpy() for n in normalization_mse_distances])
+    
 
 
     def get_reward_fn(pipeline:StableDiffusionPipeline,entity_name:str):
@@ -321,10 +275,6 @@ def evaluate_one_sample(
                 vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
                 vit_similarities=[ cos_sim_rescaled(vit_src_image_embedding,embedding)
                         for embedding in vit_embedding_list]
-                if normalize_rewards_individually:
-                    vit_similarities=[
-                        (v-vit_mean)/vit_std for v in vit_similarities
-                    ]
                 vit_similarities=[vit_weight*v for v in vit_similarities]
                 wandb_tracker.log({
                     "vit_distance":np.mean(vit_similarities)
@@ -335,10 +285,6 @@ def evaluate_one_sample(
                     cos_sim_rescaled(vit_src_content_embedding,content_embedding)
                     for content_embedding  in vit_content_embedding_list
                 ]
-                if normalize_rewards_individually:
-                    content_similarities=[
-                        (v -vit_content_mean)/vit_content_std for v in content_similarities
-                    ]
                 content_similarities=[
                     vit_content_weight * v for v in content_similarities
                 ]
@@ -351,10 +297,6 @@ def evaluate_one_sample(
                     cos_sim_rescaled(vit_src_style_embedding, style_embedding)
                     for style_embedding in vit_style_embedding_list
                 ]
-                if normalize_rewards_individually:
-                    style_similarities=[
-                        (v-vit_style_mean)/vit_style_std for v in style_similarities
-                    ]
                 style_similarities=[
                     vit_style_weight * v for v in style_similarities
                 ]
@@ -369,10 +311,6 @@ def evaluate_one_sample(
                         cos_sim_rescaled(src_face_embedding,face_embedding)
                         for face_embedding in  image_face_embeddings
                     ]
-                    if normalize_rewards_individually:
-                        face_similarities=[
-                            (v-face_mean)/face_std for v in face_similarities
-                        ]
                     face_similarities=[
                         face_weight * v for v in face_similarities
                     ]
@@ -384,12 +322,7 @@ def evaluate_one_sample(
             if use_img_reward:
                 img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
                 scores=[ir_model.score( prompt.replace(PLACEHOLDER, subject),image) for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
-                if normalize_rewards_individually:
-                    scores=[
-                        (v-image_score_mean)/image_score_std for v in scores
-                    ]
-                else:
-                    scores=[0.5 + v/4 for v in scores]
+                scores=[0.5 + v/4 for v in scores]
                 scores=[s*img_reward_weight for s in scores]
                 wandb_tracker.log({
                     "score":np.mean(scores)
@@ -399,10 +332,6 @@ def evaluate_one_sample(
                 mse_distances=[
                     -1.0* get_mse_from_src(image) for image in images
                 ]
-                if normalize_rewards_individually:
-                    mse_distances=[
-                        (m-mse_mean)/mse_std for m in mse_distances
-                    ]
                 mse_distances=[mse_reward_weight*m for m in mse_distances]
                 try:
                     wandb_tracker.log({
