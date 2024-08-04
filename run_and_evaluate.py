@@ -53,6 +53,7 @@ from experiment_helpers.better_ddpo_trainer import BetterDDPOTrainer,get_image_s
 from experiment_helpers.clothing import clothes_segmentation, get_segmentation_model
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
+from huggingface_hub import HfApi
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -631,6 +632,15 @@ def evaluate_one_sample(
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
         save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
+        new_file=f"{entity_name}_{method_name}.txt"
+        with open(new_file,"w+") as txt_file:
+            txt_file.write(entity_name)
+        api = HfApi()
+        api.upload_file(
+            new_file,
+            "entity_name.txt",
+            f"jlbaker361/{ddpo_save_hf_tag}_{label}"
+        )
         del pipeline
     else:
         message=f"no support for {method_name} try one of "+" ".join(METHOD_LIST)
