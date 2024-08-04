@@ -154,6 +154,7 @@ parser.add_argument("--default_text",type=str,default="League_of_legends_charact
 parser.add_argument("--per_prompt_stat_tracking",action="store_true")
 parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
 parser.add_argument("--use_fashion_clip_segmented",action="store_true")
+parser.add_argument("--multi_rewards",nargs="*")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -180,22 +181,21 @@ def main(args):
         metric:[] for metric in METRIC_LIST
     }
     evaluation_prompt_list=[
-        "a photo of {} at the beach",
-        "a photo of  {} in the jungle",
-        "a photo of  {} in the snow",
-        "a photo of  {} in the street",
-        "a photo of  {} with a city in the background",
-        "a photo of  {} with a mountain in the background",
-        "a photo of  {} with the Eiffel Tower in the background",
-        "a photo of  {} near the Statue of Liberty",
-        "a photo of  {} near the Sydney Opera House",
-        "a photo of  {} floating on top of water",
-        "a photo of  {} eating a burger",
-        "a photo of  {} drinking a beer",
-        "a photo of  {} wearing a blue hat",
-        "a photo of  {} wearing sunglasses",
-        "a photo of  {} playing with a ball",
-        "a photo of  {} as a police officer"
+        " {} at the beach",
+        "  {} in the jungle",
+        "  {} in the snow",
+        " {} in the street",
+        " {} by the Eiffel Tower",
+        "a Greek marble sculpture of a {}",
+        "a painting of a {} in the style of Vincent Van Gogh",
+        "a black and white photograph of a {}",
+        "a Japanese woodblock print of a {}",
+        "a good photo of {}",
+        "{} reading a book",
+        "{} giving a lecture",
+        "{} baking cookies",
+        "{} holding a glass of wine",
+        " {} going for a walk"
     ]
     len_dataset=len([r for r in dataset])
     print("len",len_dataset)
@@ -290,7 +290,8 @@ def main(args):
                                                                 args.use_fashion_clip,
                                                                 args.use_fashion_clip_segmented,
                                                                 args.initial_fashion_clip_weight,
-                                                                args.final_fashion_clip_weight
+                                                                args.final_fashion_clip_weight,
+                                                                args.multi_rewards
                                                                 )
         os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):

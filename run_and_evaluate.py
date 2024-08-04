@@ -155,7 +155,8 @@ def evaluate_one_sample(
         use_fashion_clip:bool,
         use_fashion_clip_segmented:bool,
         initial_fashion_clip_weight:float,
-        final_fashion_clip_weight:float)->dict:
+        final_fashion_clip_weight:float,
+        multi_rewards:list)->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
@@ -567,9 +568,10 @@ def evaluate_one_sample(
             txt_file.write(entity_name)
         api = HfApi()
         api.upload_file(
-            new_file,
-            "entity_name.txt",
-            f"jlbaker361/{ddpo_save_hf_tag}_{label}"
+            path_or_fileobj= new_file,
+            path_in_repo="entity_name.txt",
+            repo_id=f"jlbaker361/{ddpo_save_hf_tag}_{label}",
+            repo_type="model"
         )
         del pipeline
     else:
