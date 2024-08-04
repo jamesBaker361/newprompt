@@ -12,6 +12,8 @@ DDPO="ddpo"
 DPOK="dpok"
 FACE_REWARD="face_reward"
 FASHION_REWARD="fashion_reward"
+CONTENT_REWARD="content_reward"
+STYLE_REWARD="style_reward"
 DDPO_MULTI="ddpo_multi"
 
 PLACEHOLDER="<S>"
