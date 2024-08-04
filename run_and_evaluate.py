@@ -251,7 +251,7 @@ def evaluate_one_sample(
     
 
 
-    def get_reward_fn(pipeline:StableDiffusionPipeline,entity_name:str):
+    def get_reward_fn():
         
         def _reward_fn(images, prompts, epoch,):
             print(images)
@@ -510,7 +510,7 @@ def evaluate_one_sample(
             return entity_name,{}
 
         image_samples_hook=get_image_sample_hook(image_dir)
-        _reward_fn=get_reward_fn(pipeline.sd_pipeline,entity_name)
+        _reward_fn=get_reward_fn()
         def reward_fn(images, prompts, epoch,prompt_metadata):
             return _reward_fn(images, prompts, epoch),{}
         subject_key=re.sub(r'\s+', '_', subject)
