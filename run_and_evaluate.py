@@ -233,71 +233,72 @@ def evaluate_one_sample(
         fashion_embedding=fashion_clip_outputs.image_embeds.detach().cpu().numpy()[0]
         return fashion_embedding
 
+    fashion_src=src_image
+    if use_fashion_clip_segmented:
+        segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
+        fashion_src=clothes_segmentation(src_image,segmentation_model,0)
+    fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
+    fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
+    fashion_clip_model.eval()
+        
+    fashion_src_embedding=get_fashion_embedding(fashion_src,fashion_clip_processor, fashion_clip_model)
+    vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
+        vit_processor,vit_model,[src_image],False
+    )
+    vit_src_image_embedding=vit_src_image_embedding_list[0]
+    vit_src_style_embedding=vit_src_style_embedding_list[0]
+    vit_src_content_embedding=vit_src_content_embedding_list[0]
+    normalization_image_list=[pipeline(entity_name,num_inference_steps=num_inference_steps,
+                negative_prompt=NEGATIVE,
+                safety_checker=None).images[0] for _ in range(n_normalization_images)]
+    normalization_vit_embedding_list,normalization_vit_style_embedding_list, normalization_vit_content_embedding_list=get_vit_embeddings(
+                vit_processor,vit_model,normalization_image_list,False
+            )
+    normalization_vit_similarities=[cos_sim_rescaled(vit_src_image_embedding,embedding)
+                    for embedding in normalization_vit_embedding_list]
+    vit_mean=np.mean(normalization_vit_similarities)
+    vit_std=np.std(normalization_vit_similarities)
+    normalization_style_similarities=[
+                cos_sim_rescaled(vit_src_style_embedding, style_embedding)
+                for style_embedding in normalization_vit_style_embedding_list
+            ]
+    vit_style_mean=np.mean(normalization_style_similarities)
+    vit_style_std=np.std(normalization_style_similarities)
+    normalization_content_similarities=[
+                cos_sim_rescaled(vit_src_content_embedding,content_embedding)
+                for content_embedding  in normalization_vit_content_embedding_list
+            ]
+    vit_content_mean=np.mean(normalization_content_similarities)
+    vit_content_std=np.std(normalization_content_similarities)
+    normalization_image_face_embeddings=get_face_embedding(normalization_image_list,mtcnn,iresnet,face_margin)
+    normalization_face_similarities=[
+                    cos_sim_rescaled(src_face_embedding,face_embedding)
+                    for face_embedding in  normalization_image_face_embeddings
+                ]
+    try:
+        face_mean=np.mean(normalization_face_similarities)
+        face_std=np.std(normalization_face_similarities)
+    except RuntimeError:
+        face_mean=np.mean([n.detach().cpu().numpy() for n in normalization_face_similarities])
+        face_std=np.std([n.detach().cpu().numpy() for n in normalization_face_similarities])
+
+    normalization_image_scores=[ir_model.score(entity_name, image) for image in normalization_image_list]
+    image_score_mean=np.mean(normalization_image_scores)
+    image_score_std=np.std(normalization_image_scores)
+
+    normalization_mse_distances=[
+        get_mse_from_src(image).detach().cpu().numpy() for image in normalization_image_list
+    ]
+    try:
+        mse_mean=np.mean(normalization_mse_distances)
+        mse_std=np.std(normalization_mse_distances)
+    except RuntimeError:
+        mse_mean=np.mean([n.detach().cpu().numpy() for n in normalization_mse_distances])
+        mse_std=np.std([n.detach().cpu().numpy() for n in normalization_mse_distances])
+
+
     def get_reward_fn(pipeline:StableDiffusionPipeline,entity_name:str):
         
-        fashion_src=src_image
-        if use_fashion_clip_segmented:
-            segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
-            fashion_src=clothes_segmentation(src_image,segmentation_model,0)
-        fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
-        fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
-        fashion_clip_model.eval()
-            
-        fashion_src_embedding=get_fashion_embedding(fashion_src,fashion_clip_processor, fashion_clip_model)
-        vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
-            vit_processor,vit_model,[src_image],False
-        )
-        vit_src_image_embedding=vit_src_image_embedding_list[0]
-        vit_src_style_embedding=vit_src_style_embedding_list[0]
-        vit_src_content_embedding=vit_src_content_embedding_list[0]
-        normalization_image_list=[pipeline(entity_name,num_inference_steps=num_inference_steps,
-                    negative_prompt=NEGATIVE,
-                    safety_checker=None).images[0] for _ in range(n_normalization_images)]
-        normalization_vit_embedding_list,normalization_vit_style_embedding_list, normalization_vit_content_embedding_list=get_vit_embeddings(
-                    vit_processor,vit_model,normalization_image_list,False
-                )
-        normalization_vit_similarities=[cos_sim_rescaled(vit_src_image_embedding,embedding)
-                        for embedding in normalization_vit_embedding_list]
-        vit_mean=np.mean(normalization_vit_similarities)
-        vit_std=np.std(normalization_vit_similarities)
-        normalization_style_similarities=[
-                    cos_sim_rescaled(vit_src_style_embedding, style_embedding)
-                    for style_embedding in normalization_vit_style_embedding_list
-                ]
-        vit_style_mean=np.mean(normalization_style_similarities)
-        vit_style_std=np.std(normalization_style_similarities)
-        normalization_content_similarities=[
-                    cos_sim_rescaled(vit_src_content_embedding,content_embedding)
-                    for content_embedding  in normalization_vit_content_embedding_list
-                ]
-        vit_content_mean=np.mean(normalization_content_similarities)
-        vit_content_std=np.std(normalization_content_similarities)
-        normalization_image_face_embeddings=get_face_embedding(normalization_image_list,mtcnn,iresnet,face_margin)
-        normalization_face_similarities=[
-                        cos_sim_rescaled(src_face_embedding,face_embedding)
-                        for face_embedding in  normalization_image_face_embeddings
-                    ]
-        try:
-            face_mean=np.mean(normalization_face_similarities)
-            face_std=np.std(normalization_face_similarities)
-        except RuntimeError:
-            face_mean=np.mean([n.detach().cpu().numpy() for n in normalization_face_similarities])
-            face_std=np.std([n.detach().cpu().numpy() for n in normalization_face_similarities])
-
-        normalization_image_scores=[ir_model.score(entity_name, image) for image in normalization_image_list]
-        image_score_mean=np.mean(normalization_image_scores)
-        image_score_std=np.std(normalization_image_scores)
-
-        normalization_mse_distances=[
-            get_mse_from_src(image).detach().cpu().numpy() for image in normalization_image_list
-        ]
-        try:
-            mse_mean=np.mean(normalization_mse_distances)
-            mse_std=np.std(normalization_mse_distances)
-        except RuntimeError:
-            mse_mean=np.mean([n.detach().cpu().numpy() for n in normalization_mse_distances])
-            mse_std=np.std([n.detach().cpu().numpy() for n in normalization_mse_distances])
-
         def _reward_fn(images, prompts, epoch,):
             print(images)
             vit_similarities=[0.0 for _ in images]
