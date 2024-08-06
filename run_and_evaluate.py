@@ -43,7 +43,7 @@ from dpok_scheduler import DPOKDDIMScheduler
 from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
 from facenet_pytorch import MTCNN
-from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model,rescale_around_zero
+from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model,rescale_around_zero,face_mask
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
 from experiment_helpers.training import train_unet as train_unet_function
@@ -574,6 +574,166 @@ def evaluate_one_sample(
             repo_type="model"
         )
         del pipeline
+    elif method_name==DDPO_MULTI:
+        pipeline=BetterDefaultDDPOStableDiffusionPipeline(
+            train_text_encoder,
+            train_text_encoder_embeddings,
+            train_unet,
+            use_lora_text_encoder,
+            use_lora=use_lora,
+            pretrained_model_name="runwayml/stable-diffusion-v1-5"
+        )
+        print("len trainable parameters",len(pipeline.get_trainable_layers()))
+        prompts=[]
+        pretrain_image_list=[]
+        face_key=subject
+        fashion_key="clothes"
+        content_key=f"{subject} wearing clothes"
+        style_key=" league of legends style"
+        for reward in multi_rewards:
+            pretrain_img=src_image
+            if reward==FACE_REWARD:
+                pretrain_entity=face_key
+                pretrain_img=face_mask(src_image,mtcnn,10)
+            elif reward==FASHION_REWARD:
+                pretrain_entity=fashion_key
+                segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
+                fashion_src=clothes_segmentation(src_image,segmentation_model,0)
+                pretrain_img=fashion_src
+            elif reward==CONTENT_REWARD:
+                pretrain_entity=content_key
+            elif reward==STYLE_REWARD:
+                pretrain_entity=style_key
+            prompts.append(pretrain_entity)
+            prompts.append(pretrain_entity)
+            pretrain_image_list.append(pretrain_img)
+            pretrain_image_list.append(pretrain_img.transpose(Image.FLIP_LEFT_RIGHT))
+
+        config=DDPOConfig(
+            train_learning_rate=ddpo_lr,
+            num_epochs=num_epochs,
+            train_gradient_accumulation_steps=train_gradient_accumulation_steps,
+            sample_num_steps=num_inference_steps,
+            sample_batch_size=batch_size,
+            train_batch_size=batch_size,
+            sample_num_batches_per_epoch=samples_per_epoch,
+            mixed_precision=mixed_precision,
+            tracker_project_name="ddpo-personalization",
+            log_with="wandb",
+            per_prompt_stat_tracking=per_prompt_stat_tracking,
+            accelerator_kwargs={
+                #"project_dir":args.output_dir
+            },
+            #project_kwargs=project_kwargs
+        )
+        def prompt_fn():
+            return random.choice(prompts),{}
+        
+        def reward_fn(images, prompts, epoch,prompt_metadata):
+            rewards=[]
+            for image,prompt in zip(images,prompts):
+                if prompt==fashion_key:
+                    if use_fashion_clip_segmented:
+                        image=clothes_segmentation(image,segmentation_model,0)
+                    reward=cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
+                elif prompt==face_key:
+                    face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
+                    reward=cos_sim_rescaled(src_face_embedding,face_embedding)
+                elif prompt==content_key:
+                    vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
+                    vit_processor,vit_model,[image],False)
+                    content_embedding=vit_content_embedding_list[0]
+                    reward=cos_sim_rescaled(content_embedding,vit_src_content_embedding)
+                elif prompt==style_key:
+                    vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
+                    vit_processor,vit_model,[image],False)
+                    style_embedding=vit_style_embedding_list[0]
+                    reward=cos_sim_rescaled(style_embedding,vit_src_style_embedding)
+                rewards.append(reward)
+            return rewards,{}
+
+                    
+
+        image_samples_hook=get_image_sample_hook(image_dir)
+        subject_key=re.sub(r'\s+', '_', subject)
+        trainer = BetterDDPOTrainer(
+            config,
+            reward_fn,
+            prompt_fn,
+            pipeline,
+            image_samples_hook,
+            subject_key
+        )
+
+        if pretrain:
+            #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
+            _pretrain_image_list=[]
+            _pretrain_prompt_list=[]
+            for x in range(pretrain_steps_per_epoch):
+                _pretrain_image_list.append(pretrain_prompt_list[x% len(pretrain_prompt_list)])
+                _pretrain_prompt_list.append(prompts[x%len(prompts)])
+            pretrain_prompt_list=_pretrain_prompt_list
+            pretrain_image_list=_pretrain_image_list
+            assert len(pretrain_image_list)==len(pretrain_prompt_list), f"error {len(pretrain_image_list)} != {len(pretrain_prompt_list)}"
+            assert len(pretrain_image_list)==pretrain_steps_per_epoch, f"error {len(pretrain_image_list)} != {pretrain_steps_per_epoch}"
+            pretrain_optimizer=trainer._setup_optimizer([p for p in pipeline.sd_pipeline.unet.parameters() if p.requires_grad])
+            pipeline.sd_pipeline=train_unet_function(
+                pipeline.sd_pipeline,
+                pretrain_epochs,
+                pretrain_image_list,
+                prompts,
+                pretrain_optimizer,
+                False,
+                "prior",
+                batch_size,
+                1.0,
+                subject,
+                trainer.accelerator,
+                num_inference_steps,
+                0.0,
+                True
+            )
+            torch.cuda.empty_cache()
+            trainer.accelerator.free_memory()
+        
+        pipeline.sd_pipeline.scheduler.alphas_cumprod=pipeline.sd_pipeline.scheduler.alphas_cumprod.to("cpu")
+
+        print(f"acceleerate device {trainer.accelerator.device}")
+        tracker=trainer.accelerator.get_tracker("wandb").run
+        with accelerator.autocast():
+            trainer.train(retain_graph=False,normalize_rewards=normalize_rewards)
+        
+        entity_name=""
+        if (FACE_REWARD in multi_rewards and FASHION_REWARD in multi_rewards) or CONTENT_REWARD in multi_rewards:
+            entity_name = content_key
+        elif FASHION_REWARD in multi_rewards:
+            entity_name=face_key
+        elif FASHION_REWARD in multi_rewards:
+            entity_name=fashion_key
+        
+        if STYLE_REWARD in multi_rewards:
+            entity_name+= style_key
+
+        evaluation_image_list=[
+            pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
+                    num_inference_steps=num_inference_steps,
+                    negative_prompt=NEGATIVE,
+                    safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
+        ]
+        save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
+        new_file=f"{entity_name}_{method_name}.txt"
+        with open(new_file,"w+") as txt_file:
+            txt_file.write(entity_name)
+        api = HfApi()
+        api.upload_file(
+            path_or_fileobj= new_file,
+            path_in_repo="entity_name.txt",
+            repo_id=f"jlbaker361/{ddpo_save_hf_tag}_{label}",
+            repo_type="model"
+        )
+        del pipeline
+
+        
     else:
         message=f"no support for {method_name} try one of "+" ".join(METHOD_LIST)
         raise Exception(message)
