@@ -470,7 +470,7 @@ def evaluate_one_sample(
                     safety_checker=None,
                     ip_adapter_image=src_image).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
-'''    elif method_name==DDPO:
+        '''elif method_name==DDPO:
         pipeline=BetterDefaultDDPOStableDiffusionPipeline(
             train_text_encoder,
             train_text_encoder_embeddings,
@@ -597,6 +597,9 @@ def evaluate_one_sample(
         fashion_key="clothes"
         content_key=f"{subject} wearing clothes"
         style_key=" league of legends style"
+        if len(multi_rewards)==0:
+            prompts=[entity_name]
+            pretrain_image_list=[src_image]
         for reward in multi_rewards:
             pretrain_img=src_image
             if reward==FACE_REWARD:
@@ -612,9 +615,9 @@ def evaluate_one_sample(
             elif reward==STYLE_REWARD:
                 pretrain_entity=style_key
             prompts.append(pretrain_entity)
-            prompts.append(pretrain_entity)
+            #prompts.append(pretrain_entity)
             pretrain_image_list.append(pretrain_img)
-            pretrain_image_list.append(pretrain_img.transpose(Image.FLIP_LEFT_RIGHT))
+            #pretrain_image_list.append(pretrain_img.transpose(Image.FLIP_LEFT_RIGHT))
 
         config=DDPOConfig(
             train_learning_rate=ddpo_lr,
@@ -693,7 +696,10 @@ def evaluate_one_sample(
             _pretrain_image_list=[]
             _pretrain_prompt_list=[]
             for x in range(pretrain_steps_per_epoch):
-                _pretrain_image_list.append(pretrain_image_list[x% len(pretrain_image_list)])
+                if x%2==0:
+                    _pretrain_image_list.append(pretrain_image_list[x% len(pretrain_image_list)])
+                else:
+                    _pretrain_image_list.append(pretrain_image_list[x% len(pretrain_image_list)].transpose(Image.FLIP_LEFT_RIGHT))
                 _pretrain_prompt_list.append(prompts[x%len(prompts)])
             pretrain_prompt_list=_pretrain_prompt_list
             pretrain_image_list=_pretrain_image_list
