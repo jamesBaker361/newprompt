@@ -470,7 +470,7 @@ def evaluate_one_sample(
                     safety_checker=None,
                     ip_adapter_image=src_image).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
-    elif method_name==DDPO:
+'''    elif method_name==DDPO:
         pipeline=BetterDefaultDDPOStableDiffusionPipeline(
             train_text_encoder,
             train_text_encoder_embeddings,
@@ -580,8 +580,8 @@ def evaluate_one_sample(
             repo_id=f"jlbaker361/{ddpo_save_hf_tag}_{label}",
             repo_type="model"
         )
-        del pipeline
-    elif method_name==DDPO_MULTI:
+        del pipeline'''
+    elif method_name==DDPO_MULTI or DDPO:
         pipeline=BetterDefaultDDPOStableDiffusionPipeline(
             train_text_encoder,
             train_text_encoder_embeddings,
@@ -633,40 +633,48 @@ def evaluate_one_sample(
             },
             #project_kwargs=project_kwargs
         )
-        def prompt_fn():
-            return random.choice(prompts),{}
-        
-        def reward_fn(images, prompts, epoch,prompt_metadata):
-            rewards=[]
-            for image,prompt in zip(images,prompts):
-                if prompt==fashion_key:
-                    if use_fashion_clip_segmented:
-                        image=clothes_segmentation(image,segmentation_model,0)
-                    reward=cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
-                elif prompt==face_key:
-                    face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
-                    reward=cos_sim_rescaled(src_face_embedding,face_embedding)
-                elif prompt==content_key and CONTENT_REWARD in multi_rewards:
-                    vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                    vit_processor,vit_model,[image],False)
-                    content_embedding=vit_content_embedding_list[0]
-                    reward=cos_sim_rescaled(content_embedding,vit_src_content_embedding)
-                elif prompt==content_key and BODY_REWARD in multi_rewards:
-                    face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
-                    if use_fashion_clip_segmented:
-                        image=clothes_segmentation(image,segmentation_model,0)
+        if method_name==DDPO_MULTI:
 
-                    fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
-                    face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
-                    reward=fashion_reward+face_reward
-                elif prompt==style_key:
-                    vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                    vit_processor,vit_model,[image],False)
-                    style_embedding=vit_style_embedding_list[0]
-                    reward=cos_sim_rescaled(style_embedding,vit_src_style_embedding)
-                rewards.append(reward)
-            return rewards,{}
+            def prompt_fn():
+                return random.choice(prompts),{}
+            
+            def reward_fn(images, prompts, epoch,prompt_metadata):
+                rewards=[]
+                for image,prompt in zip(images,prompts):
+                    if prompt==fashion_key:
+                        if use_fashion_clip_segmented:
+                            image=clothes_segmentation(image,segmentation_model,0)
+                        reward=cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
+                    elif prompt==face_key:
+                        face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
+                        reward=cos_sim_rescaled(src_face_embedding,face_embedding)
+                    elif prompt==content_key and CONTENT_REWARD in multi_rewards:
+                        vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
+                        vit_processor,vit_model,[image],False)
+                        content_embedding=vit_content_embedding_list[0]
+                        reward=cos_sim_rescaled(content_embedding,vit_src_content_embedding)
+                    elif prompt==content_key and BODY_REWARD in multi_rewards:
+                        face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
+                        if use_fashion_clip_segmented:
+                            image=clothes_segmentation(image,segmentation_model,0)
 
+                        fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
+                        face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
+                        reward=fashion_reward+face_reward
+                    elif prompt==style_key:
+                        vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
+                        vit_processor,vit_model,[image],False)
+                        style_embedding=vit_style_embedding_list[0]
+                        reward=cos_sim_rescaled(style_embedding,vit_src_style_embedding)
+                    rewards.append(reward)
+                return rewards,{}
+        elif method_name==DDPO:
+            def prompt_fn():
+                return entity_name,{}
+
+            _reward_fn=get_reward_fn()
+            def reward_fn(images, prompts, epoch,prompt_metadata):
+                return _reward_fn(images, prompts, epoch),{}
                     
 
         image_samples_hook=get_image_sample_hook(image_dir)
@@ -685,7 +693,7 @@ def evaluate_one_sample(
             _pretrain_image_list=[]
             _pretrain_prompt_list=[]
             for x in range(pretrain_steps_per_epoch):
-                _pretrain_image_list.append(pretrain_prompt_list[x% len(pretrain_prompt_list)])
+                _pretrain_image_list.append(pretrain_image_list[x% len(pretrain_image_list)])
                 _pretrain_prompt_list.append(prompts[x%len(prompts)])
             pretrain_prompt_list=_pretrain_prompt_list
             pretrain_image_list=_pretrain_image_list
@@ -717,18 +725,19 @@ def evaluate_one_sample(
         tracker=trainer.accelerator.get_tracker("wandb").run
         with accelerator.autocast():
             trainer.train(retain_graph=False,normalize_rewards=normalize_rewards)
-        
-        entity_name=""
-        if (FACE_REWARD in multi_rewards and FASHION_REWARD in multi_rewards) or CONTENT_REWARD in multi_rewards:
-            entity_name = content_key
-        elif FASHION_REWARD in multi_rewards:
-            entity_name=face_key
-        elif FASHION_REWARD in multi_rewards:
-            entity_name=fashion_key
-        
-        if STYLE_REWARD in multi_rewards:
-            entity_name+= style_key
+        if method_name==DDPO_MULTI:
+            entity_name=""
+            if (FACE_REWARD in multi_rewards and FASHION_REWARD in multi_rewards) or CONTENT_REWARD in multi_rewards:
+                entity_name = content_key
+            elif FASHION_REWARD in multi_rewards:
+                entity_name=face_key
+            elif FASHION_REWARD in multi_rewards:
+                entity_name=fashion_key
+            
+            if STYLE_REWARD in multi_rewards:
+                entity_name+= style_key
 
+        print(f"evaluation with entity_name {entity_name}")
         evaluation_image_list=[
             pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,
