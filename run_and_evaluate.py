@@ -607,7 +607,7 @@ def evaluate_one_sample(
                 segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
                 fashion_src=clothes_segmentation(src_image,segmentation_model,0)
                 pretrain_img=fashion_src
-            elif reward==CONTENT_REWARD:
+            elif reward==CONTENT_REWARD or reward==BODY_REWARD:
                 pretrain_entity=content_key
             elif reward==STYLE_REWARD:
                 pretrain_entity=style_key
@@ -646,11 +646,19 @@ def evaluate_one_sample(
                 elif prompt==face_key:
                     face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
                     reward=cos_sim_rescaled(src_face_embedding,face_embedding)
-                elif prompt==content_key:
+                elif prompt==content_key and CONTENT_REWARD in multi_rewards:
                     vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
                     vit_processor,vit_model,[image],False)
                     content_embedding=vit_content_embedding_list[0]
                     reward=cos_sim_rescaled(content_embedding,vit_src_content_embedding)
+                elif prompt==content_key and BODY_REWARD in multi_rewards:
+                    face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
+                    if use_fashion_clip_segmented:
+                        image=clothes_segmentation(image,segmentation_model,0)
+
+                    fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
+                    face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
+                    reward=fashion_reward+face_reward
                 elif prompt==style_key:
                     vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
                     vit_processor,vit_model,[image],False)
