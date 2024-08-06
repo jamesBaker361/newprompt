@@ -142,7 +142,7 @@ parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/oneshot")
 parser.add_argument("--value_epochs",type=int,default=0,help="epochs to train alue function before training unet for dpok")
 parser.add_argument("--normalize_rewards",action="store_true",help="whether to normalize rewards for ddpo")
 parser.add_argument("--normalize_rewards_individually",action="store_true",help="whether to normalize each individual reward in reward function")
-parser.add_argument("--n_normalization_images",type=int,default=2)
+parser.add_argument("--n_normalization_images",type=int,default=0)
 parser.add_argument("--use_value_function",action="store_true")
 parser.add_argument("--ddpo_lr",type=float,default=3e-4)
 parser.add_argument("--use_mse_vae",action="store_true")
@@ -213,6 +213,7 @@ def main(args):
         src_image=row[args.image_key]
         if args.use_default_text:
             subject=args.default_text.replace("_"," ")
+        args.image_dir=f"{args.image_dir}/{label}/{args.start}/{args.method_name}"
         metric_dict,evaluation_image_list=evaluate_one_sample(args.method_name,
                                                               src_image,
                                                               evaluation_prompt_list,
@@ -293,14 +294,14 @@ def main(args):
                                                                 args.final_fashion_clip_weight,
                                                                 args.multi_rewards
                                                                 )
-        os.makedirs(f"{args.image_dir}/{label}/",exist_ok=True)
+        os.makedirs(f"{args.image_dir}",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
             try:
                 accelerator.log({
                 f"{label}/{args.method_name}_{i}":image
                 })
             except:
-                path=f"{args.image_dir}/{label}/{args.method_name}_{i}.png"
+                path=f"{args.image_dir}/{args.method_name}_{i}.png"
                 image.save(path)
                 accelerator.log({
                     f"{label}/{args.method_name}_{i}":wandb.Image(path)
