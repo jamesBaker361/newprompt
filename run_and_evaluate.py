@@ -597,7 +597,7 @@ def evaluate_one_sample(
         fashion_key="clothes"
         content_key=f"{subject} wearing clothes"
         style_key=" league of legends style"
-        if len(multi_rewards)==0:
+        if multi_rewards==None or len(multi_rewards)==0:
             prompts=[entity_name]
             pretrain_image_list=[src_image]
         for reward in multi_rewards:
