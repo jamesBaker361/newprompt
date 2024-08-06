@@ -529,7 +529,10 @@ def evaluate_one_sample(
             pretrain_image_list=[]
             pretrain_prompt_list=[]
             for x in range(pretrain_steps_per_epoch):
-                pretrain_image_list.append(src_image)
+                if x%2==0:
+                    pretrain_image_list.append(src_image)
+                else:
+                    pretrain_image_list.append(src_image.transpose(Image.FLIP_LEFT_RIGHT))
                 pretrain_prompt_list.append(prompt_list[x%len(prompt_list)])
             assert len(pretrain_image_list)==len(pretrain_prompt_list), f"error {len(pretrain_image_list)} != {len(pretrain_prompt_list)}"
             assert len(pretrain_image_list)==pretrain_steps_per_epoch, f"error {len(pretrain_image_list)} != {pretrain_steps_per_epoch}"
