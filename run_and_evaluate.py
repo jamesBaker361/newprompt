@@ -597,27 +597,29 @@ def evaluate_one_sample(
         fashion_key="clothes"
         content_key=f"{subject} wearing clothes"
         style_key=" league of legends style"
+        entity_name=subject
         if multi_rewards==None or len(multi_rewards)==0:
             prompts=[entity_name]
             pretrain_image_list=[src_image]
-        for reward in multi_rewards:
-            pretrain_img=src_image
-            if reward==FACE_REWARD:
-                pretrain_entity=face_key
-                pretrain_img=face_mask(src_image,mtcnn,10)
-            elif reward==FASHION_REWARD:
-                pretrain_entity=fashion_key
-                segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
-                fashion_src=clothes_segmentation(src_image,segmentation_model,0)
-                pretrain_img=fashion_src
-            elif reward==CONTENT_REWARD or reward==BODY_REWARD:
-                pretrain_entity=content_key
-            elif reward==STYLE_REWARD:
-                pretrain_entity=style_key
-            prompts.append(pretrain_entity)
-            #prompts.append(pretrain_entity)
-            pretrain_image_list.append(pretrain_img)
-            #pretrain_image_list.append(pretrain_img.transpose(Image.FLIP_LEFT_RIGHT))
+        else:
+            for reward in multi_rewards:
+                pretrain_img=src_image
+                if reward==FACE_REWARD:
+                    pretrain_entity=face_key
+                    pretrain_img=face_mask(src_image,mtcnn,10)
+                elif reward==FASHION_REWARD:
+                    pretrain_entity=fashion_key
+                    segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
+                    fashion_src=clothes_segmentation(src_image,segmentation_model,0)
+                    pretrain_img=fashion_src
+                elif reward==CONTENT_REWARD or reward==BODY_REWARD:
+                    pretrain_entity=content_key
+                elif reward==STYLE_REWARD:
+                    pretrain_entity=style_key
+                prompts.append(pretrain_entity)
+                #prompts.append(pretrain_entity)
+                pretrain_image_list.append(pretrain_img)
+                #pretrain_image_list.append(pretrain_img.transpose(Image.FLIP_LEFT_RIGHT))
 
         config=DDPOConfig(
             train_learning_rate=ddpo_lr,
