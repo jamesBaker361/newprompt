@@ -710,7 +710,7 @@ def evaluate_one_sample(
                 pipeline.sd_pipeline,
                 pretrain_epochs,
                 pretrain_image_list,
-                prompts,
+                pretrain_prompt_list,
                 pretrain_optimizer,
                 False,
                 "prior",
