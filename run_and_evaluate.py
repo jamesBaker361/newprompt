@@ -54,6 +54,7 @@ from experiment_helpers.clothing import clothes_segmentation, get_segmentation_m
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 from huggingface_hub import HfApi
+from dreamsim import dreamsim
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -194,6 +195,8 @@ def evaluate_one_sample(
     #vit_model.to(accelerator.device)
     #vit_model=accelerator.prepare(vit_model)
 
+
+
     normalization_image_list=[]
 
     max_train_steps=samples_per_epoch*num_epochs
@@ -253,7 +256,8 @@ def evaluate_one_sample(
     vit_src_style_embedding=vit_src_style_embedding_list[0]
     vit_src_content_embedding=vit_src_content_embedding_list[0]
     
-
+    dream_model, dream_preprocess = dreamsim(pretrained=True,cache_dir="/scratch/jlb638/dreamsim",device=accelerator.device)
+    src_dream_embedding=dream_model.embed(dream_preprocess(src_image))[0]
 
     def get_reward_fn():
         
@@ -267,6 +271,7 @@ def evaluate_one_sample(
             content_similarities=[0.0 for _ in images]
             mse_distances=[0.0 for _ in images]
             fashion_similarities=[0.0 for _ in images]
+            dream_similarities=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
@@ -363,12 +368,20 @@ def evaluate_one_sample(
                 wandb_tracker.log({
                     "fashion_distance":np.mean(fashion_similarities)
                 })
+            if use_dream_sim:
+                dream_weight=initial_dream_sim_weight+((final_dream_sim_weight-initial_dream_sim_weight)*time_factor)
+                dream_similarities=[
+                    dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image))[0]) for image in images
+                ]
+                wandb_tracker.log({
+                    "dream_distance":np.mean(dream_similarities)
+                })
                 
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas for d,f,s,vs,vc,m,fas in zip(vit_similarities,face_similarities,
-                                                       scores,style_similarities, content_similarities,mse_distances,fashion_similarities)
+                d+f+s+vs+vc+m+fas for d,f,s,vs,vc,m,fas,drm in zip(vit_similarities,face_similarities,
+                                                       scores,style_similarities, content_similarities,mse_distances,fashion_similarities,dream_similarities)
             ]
             try:
                 wandb_tracker.log({
