@@ -128,7 +128,7 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
@@ -292,7 +292,10 @@ def main(args):
                                                                 args.use_fashion_clip_segmented,
                                                                 args.initial_fashion_clip_weight,
                                                                 args.final_fashion_clip_weight,
-                                                                args.multi_rewards
+                                                                args.multi_rewards,
+                                                                args.use_dream_sim,
+                                                                args.initial_dream_sim_weight,
+                                                                args.final_dream_sim_weight
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         for i,image in enumerate(evaluation_image_list):
