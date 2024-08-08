@@ -51,6 +51,7 @@ from experiment_helpers.lora_loading import save_pipeline_hf
 from experiment_helpers.better_ddpo_pipeline import BetterDefaultDDPOStableDiffusionPipeline
 from experiment_helpers.better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
 from experiment_helpers.clothing import clothes_segmentation, get_segmentation_model
+from experiment_helpers.cloth_process import generate_mask,load_seg_model,get_palette
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 from huggingface_hub import HfApi
@@ -240,10 +241,11 @@ def evaluate_one_sample(
         fashion_embedding=fashion_clip_outputs.image_embeds.detach().cpu().numpy()[0]
         return fashion_embedding
 
+    seg_model=load_seg_model("/scratch/jlb638/fashion_segmentation/cloth_segm.pth",device=accelerator.device)
     fashion_src=src_image
     if use_fashion_clip_segmented:
-        segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
-        fashion_src=clothes_segmentation(src_image,segmentation_model,0)
+        palette=get_palette(4)
+        fashion_src=generate_mask(src_image,seg_model,palette,accelerator.device)
     fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
     fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
     fashion_clip_model.eval()
@@ -255,9 +257,17 @@ def evaluate_one_sample(
     vit_src_image_embedding=vit_src_image_embedding_list[0]
     vit_src_style_embedding=vit_src_style_embedding_list[0]
     vit_src_content_embedding=vit_src_content_embedding_list[0]
+
+    torch.cuda.empty_cache()
+    accelerator.free_memory()
     
     dream_model, dream_preprocess = dreamsim(pretrained=True,cache_dir="/scratch/jlb638/dreamsim",device=accelerator.device)
     src_dream_embedding=dream_model.embed(dream_preprocess(src_image))[0]
+
+    
+    
+    
+    
 
     def get_reward_fn():
         
@@ -357,7 +367,7 @@ def evaluate_one_sample(
                 ]
             elif use_fashion_clip_segmented:
                 segmented_images=[
-                    clothes_segmentation(image,segmentation_model,0) for image in images
+                    generate_mask(image,seg_model,palette,accelerator.device) for image in images
                 ]
                 fashion_similarities=[
                     cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(seg_image,fashion_clip_processor,fashion_clip_model)) for seg_image in segmented_images
@@ -664,7 +674,7 @@ def evaluate_one_sample(
                 for image,prompt in zip(images,prompts):
                     if prompt==fashion_key:
                         if use_fashion_clip_segmented:
-                            image=clothes_segmentation(image,segmentation_model,0)
+                            image=generate_mask(image,seg_model,palette,accelerator.device)
                         reward=cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
                     elif prompt==face_key:
                         face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
@@ -677,7 +687,7 @@ def evaluate_one_sample(
                     elif prompt==content_key and BODY_REWARD in multi_rewards:
                         face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
                         if use_fashion_clip_segmented:
-                            image=clothes_segmentation(image,segmentation_model,0)
+                            image=generate_mask(image,seg_model,palette,accelerator.device)
 
                         fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
                         face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
