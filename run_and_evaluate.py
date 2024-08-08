@@ -54,7 +54,7 @@ from experiment_helpers.clothing import clothes_segmentation, get_segmentation_m
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 from huggingface_hub import HfApi
-from dreamsim import dreamsim
+from experiment_helpers.legacy_dreamsim import dreamsim
 
 torch.autograd.set_detect_anomaly(True)
 
