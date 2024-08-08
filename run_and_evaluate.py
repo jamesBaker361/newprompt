@@ -244,8 +244,7 @@ def evaluate_one_sample(
     seg_model=load_seg_model("/scratch/jlb638/fashion_segmentation/cloth_segm.pth",device=accelerator.device)
     fashion_src=src_image
     if use_fashion_clip_segmented:
-        palette=get_palette(4)
-        fashion_src=generate_mask(src_image,seg_model,palette,accelerator.device)
+        fashion_src=generate_mask(src_image,seg_model,accelerator.device)
     fashion_clip_processor=CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
     fashion_clip_model=CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
     fashion_clip_model.eval()
@@ -262,7 +261,7 @@ def evaluate_one_sample(
     accelerator.free_memory()
     
     dream_model, dream_preprocess = dreamsim(pretrained=True,cache_dir="/scratch/jlb638/dreamsim",device=accelerator.device)
-    src_dream_embedding=dream_model.embed(dream_preprocess(src_image))[0]
+    src_dream_embedding=dream_model.embed(dream_preprocess(src_image).to(accelerator.device))[0]
 
     
     
@@ -367,7 +366,7 @@ def evaluate_one_sample(
                 ]
             elif use_fashion_clip_segmented:
                 segmented_images=[
-                    generate_mask(image,seg_model,palette,accelerator.device) for image in images
+                    generate_mask(image,seg_model,accelerator.device) for image in images
                 ]
                 fashion_similarities=[
                     cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(seg_image,fashion_clip_processor,fashion_clip_model)) for seg_image in segmented_images
@@ -381,7 +380,7 @@ def evaluate_one_sample(
             if use_dream_sim:
                 dream_weight=initial_dream_sim_weight+((final_dream_sim_weight-initial_dream_sim_weight)*time_factor)
                 dream_similarities=[
-                    dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image))[0]) for image in images
+                    dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]) for image in images
                 ]
                 wandb_tracker.log({
                     "dream_distance":np.mean(dream_similarities)
@@ -638,7 +637,7 @@ def evaluate_one_sample(
                     segmentation_model=get_segmentation_model(accelerator.device,weight_dtype)
                     fashion_src=clothes_segmentation(src_image,segmentation_model,0)
                     pretrain_img=fashion_src
-                elif reward==CONTENT_REWARD or reward==BODY_REWARD:
+                elif reward==CONTENT_REWARD or reward==BODY_REWARD or reward==DREAM_REWARD:
                     pretrain_entity=content_key
                 elif reward==STYLE_REWARD:
                     pretrain_entity=style_key
@@ -674,7 +673,7 @@ def evaluate_one_sample(
                 for image,prompt in zip(images,prompts):
                     if prompt==fashion_key:
                         if use_fashion_clip_segmented:
-                            image=generate_mask(image,seg_model,palette,accelerator.device)
+                            image=generate_mask(image,seg_model,accelerator.device)
                         reward=cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
                     elif prompt==face_key:
                         face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
@@ -687,11 +686,14 @@ def evaluate_one_sample(
                     elif prompt==content_key and BODY_REWARD in multi_rewards:
                         face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
                         if use_fashion_clip_segmented:
-                            image=generate_mask(image,seg_model,palette,accelerator.device)
+                            image=generate_mask(image,seg_model,accelerator.device)
 
                         fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
                         face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
                         reward=fashion_reward+face_reward
+                    elif prompt==content_key and DREAM_REWARD in multi_rewards:
+                        dream_embedding=dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]
+                        reward=cos_sim_rescaled(dream_embedding,src_dream_embedding)
                     elif prompt==style_key:
                         vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
                         vit_processor,vit_model,[image],False)
