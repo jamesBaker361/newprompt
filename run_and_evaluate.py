@@ -26,9 +26,6 @@ from static_globals import *
 from accelerate import Accelerator
 from transformers import CLIPProcessor, CLIPModel,ViTImageProcessor, ViTModel,CLIPTokenizer
 import numpy as np
-from peft import LoraConfig, get_peft_model
-from aesthetic_reward import get_aesthetic_scorer
-from chosen_helpers import get_hidden_states,get_best_cluster_kmeans,get_init_dist,loop,get_top_k,generate_with_style
 import gc
 from dvlab.rival.test_variation_sdv1 import make_eval_image
 from instant.infer import instant_generate_one_sample
@@ -174,23 +171,41 @@ def evaluate_one_sample(
     iresnet=get_iresnet_model("cpu")
     #mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
-
-    blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-    blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
-    blip_model.eval()
-    blip_model.requires_grad_(False)
+    print("subject",subject)
+    try:
+        blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+        blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
+        blip_model.eval()
+        blip_model.requires_grad_(False)
+        caption_inputs = blip_processor(src_image, "", return_tensors="pt")
+        caption_out=blip_model.generate(**caption_inputs)
+        caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
+        print("blip caption ",caption)
+        
+    except:
+        try:
+            blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b",force_download=True)
+            blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b",force_download=True)
+            blip_model.eval()
+            blip_model.requires_grad_(False)
+            caption_inputs = blip_processor(src_image, "", return_tensors="pt")
+            caption_out=blip_model.generate(**caption_inputs)
+            caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
+            print("blip caption ",caption)
+        except:
+            print("culoldmnt load blip?")
     #blip_model.to(accelerator.device)
 
     #blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
 
-    caption_inputs = blip_processor(src_image, "", return_tensors="pt")
-    caption_out=blip_model.generate(**caption_inputs)
-    caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
-    print("blip caption ",caption)
-    print("subject",subject)
+    try:
+        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
+        vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16')
+    except:
+    
 
-    vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
-    vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16')
+        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16',force_download=True)
+        vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16',force_download=True)
     vit_model.eval()
     vit_model.requires_grad_(False)
     #vit_model.to(accelerator.device)
@@ -382,6 +397,9 @@ def evaluate_one_sample(
                 dream_similarities=[
                     dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]) for image in images
                 ]
+                dream_similarities=[
+                    dream.detach().cpu().numpy() for dream in dream_similarities
+                ]
                 wandb_tracker.log({
                     "dream_distance":np.mean(dream_similarities)
                 })
@@ -389,7 +407,7 @@ def evaluate_one_sample(
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas for d,f,s,vs,vc,m,fas,drm in zip(vit_similarities,face_similarities,
+                d+f+s+vs+vc+m+fas+drm for d,f,s,vs,vc,m,fas,drm in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,mse_distances,fashion_similarities,dream_similarities)
             ]
             try:
@@ -477,10 +495,17 @@ def evaluate_one_sample(
         tokenizer=pipeline.tokenizer
         text_encoder=pipeline.text_encoder
         pipeline("none",num_inference_steps=1) #things initialize weird if we dont do it once
-        if method_name==IP_ADAPTER:
-            pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus_sd15.bin")
-        elif method_name==FACE_IP_ADAPTER:
-            pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.bin")
+        try:
+            if method_name==IP_ADAPTER:
+                pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus_sd15.bin")
+            elif method_name==FACE_IP_ADAPTER:
+                pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.bin")
+        except:
+            if method_name==IP_ADAPTER:
+                pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus_sd15.bin",force_download=True)
+            elif method_name==FACE_IP_ADAPTER:
+                pipeline.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.bin",force_download=True)
+
         image_encoder=pipeline.image_encoder
         unet,text_encoder,vae,tokenizer,image_encoder = accelerator.prepare(
             unet,text_encoder,vae,tokenizer,image_encoder
