@@ -347,9 +347,12 @@ def evaluate_one_sample(
                     face_similarities=[
                         face_weight * v for v in face_similarities
                     ]
-                    face_similarities=[
-                        face_weight.detch().cpu().numpy() for v in face_similarities
-                    ]
+                    try:
+                        face_similarities=[
+                            face_weight.detach().cpu().numpy() for v in face_similarities
+                        ]
+                    except:
+                        pass
                     wandb_tracker.log({
                         "face_distance":np.mean(face_similarities)
                     })
@@ -392,6 +395,10 @@ def evaluate_one_sample(
             if use_fashion_clip or use_fashion_clip_segmented:
                 fashion_clip_weight=initial_fashion_clip_weight+((final_fashion_clip_weight-initial_fashion_clip_weight) * time_factor)
                 fashion_similarities=[fashion_clip_weight * f for f in fashion_similarities]
+                try:
+                    fashion_similarities=[f.detach().cpu().numpy() for f in fashion_similarities]
+                except:
+                    pass
                 wandb_tracker.log({
                     "fashion_distance":np.mean(fashion_similarities)
                 })
