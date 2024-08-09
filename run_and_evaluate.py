@@ -347,6 +347,9 @@ def evaluate_one_sample(
                     face_similarities=[
                         face_weight * v for v in face_similarities
                     ]
+                    face_similarities=[
+                        face_weight.detch().cpu().numpy() for v in face_similarities
+                    ]
                     wandb_tracker.log({
                         "face_distance":np.mean(face_similarities)
                     })
