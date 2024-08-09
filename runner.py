@@ -174,7 +174,9 @@ parser.add_argument("--multi_rewards",nargs="*")
 
 def main(args):
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
+    print("made accelelratro")
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
+    print("init trackers")
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
     aggregate_dict={
@@ -309,6 +311,10 @@ def main(args):
                 accelerator.log({
                     f"{label}/{args.method_name}_{i}":wandb.Image(path)
                 })
+                try:
+                    os.remove(path)
+                except:
+                    pass
         print(f"after {j} samples:")
         for metric,value in metric_dict.items():
             aggregate_dict[metric].append(value)
