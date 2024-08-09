@@ -172,7 +172,7 @@ def evaluate_one_sample(
     #mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
     print("subject",subject)
-    try:
+    '''try:
         blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
         blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
         blip_model.eval()
@@ -193,7 +193,7 @@ def evaluate_one_sample(
             caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
             print("blip caption ",caption)
         except:
-            print("culoldmnt load blip?")
+            print("culoldmnt load blip?")'''
     #blip_model.to(accelerator.device)
 
     #blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
