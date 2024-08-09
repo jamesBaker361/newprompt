@@ -421,6 +421,10 @@ def evaluate_one_sample(
                                                        scores,style_similarities, content_similarities,mse_distances,fashion_similarities,dream_similarities)
             ]
             try:
+                rewards=[r.detach().cpu().numpy() for r in rewards]
+            except:
+                pass
+            try:
                 wandb_tracker.log({
                     "reward_fn":np.mean(rewards)
                 })
