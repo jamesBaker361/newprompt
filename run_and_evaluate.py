@@ -338,26 +338,21 @@ def evaluate_one_sample(
                 })
             if use_face_distance:
                 face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
-                try:
-                    image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
-                    face_similarities=[
-                        cos_sim_rescaled(src_face_embedding,face_embedding)
-                        for face_embedding in  image_face_embeddings
-                    ]
-                    face_similarities=[
-                        face_weight * v for v in face_similarities
-                    ]
-                    try:
-                        face_similarities=[
-                            face_weight.detach().cpu().numpy() for v in face_similarities
-                        ]
-                    except:
-                        pass
-                    wandb_tracker.log({
-                        "face_distance":np.mean(face_similarities)
-                    })
-                except (RuntimeError,TypeError):
-                    pass
+
+                image_face_embeddings=get_face_embedding(images,mtcnn,iresnet,face_margin)
+                face_similarities=[
+                    cos_sim_rescaled(src_face_embedding,face_embedding)
+                    for face_embedding in  image_face_embeddings
+                ]
+                face_similarities=[
+                    face_weight * v for v in face_similarities
+                ]
+                face_similarities=[
+                    v.detach().cpu().numpy() for v in face_similarities
+                ]
+                wandb_tracker.log({
+                    "face_distance":np.mean(face_similarities)
+                })
             if use_img_reward:
                 img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
                 scores=[ir_model.score( prompt.replace(PLACEHOLDER, subject),image) for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
