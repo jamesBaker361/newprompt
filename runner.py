@@ -29,6 +29,7 @@ import gc
 from experiment_helpers.static_globals import METRIC_LIST
 import datetime
 import time
+import shutil
 
 parser=argparse.ArgumentParser()
 
@@ -171,6 +172,10 @@ parser.add_argument("--multi_rewards",nargs="*")
       default=1e-5,
       help="Learning rate for policy",
   )'''
+
+def cleanup_wandb(accelerator:Accelerator):
+    run_folder=accelerator.get_tracker("wandb").run.dir
+    shutil.rmtree(run_folder)
 
 def main(args):
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
@@ -328,6 +333,8 @@ def main(args):
         accelerator.log({
             f"{args.method_name}_{metric}":np.mean(value_list)
         })
+
+    
 if __name__=='__main__':
     # Get current date and time
     current_datetime = datetime.datetime.now()
