@@ -29,6 +29,7 @@ import gc
 from experiment_helpers.static_globals import METRIC_LIST
 import datetime
 import time
+import random
 import shutil
 
 parser=argparse.ArgumentParser()
@@ -180,7 +181,12 @@ def cleanup_wandb(accelerator:Accelerator):
 def main(args):
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
     print("made accelelratro")
-    accelerator.init_trackers(project_name=args.project_name,config=vars(args))
+    try:
+        accelerator.init_trackers(project_name=args.project_name,config=vars(args))
+    except OSError:
+        print("os error?????")
+        time.sleep(random.randint(10,100))
+        accelerator.init_trackers(project_name=args.project_name,config=vars(args))
     print("init trackers")
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
