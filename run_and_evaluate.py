@@ -315,7 +315,7 @@ def evaluate_one_sample(
             if use_vit_content:
                 vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
                 content_similarities=[
-                    cos_sim_rescaled(vit_src_content_embedding,content_embedding)
+                    cos_sim_rescaled(vit_src_content_embedding,content_embedding).item()
                     for content_embedding  in vit_content_embedding_list
                 ]
                 content_similarities=[
@@ -432,6 +432,7 @@ def evaluate_one_sample(
                 for i in range(len(scores)):
                     if i not in dominant_list:
                         rewards[i]=0.0
+            print(rewards)
             return rewards
         
         return _reward_fn
