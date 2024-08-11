@@ -214,21 +214,23 @@ def main(args):
         metric:[] for metric in METRIC_LIST
     }
     evaluation_prompt_list=[
+        " {} at home ",
         " {} at the beach",
         "  {} in the jungle",
         "  {} in the snow",
         " {} in the street",
         " {} by the Eiffel Tower",
         "a Greek marble sculpture of a {}",
-        "a painting of a {} in the style of Vincent Van Gogh",
+        #"a painting of a {} in the style of Vincent Van Gogh",
         "a black and white photograph of a {}",
-        "a Japanese woodblock print of a {}",
+       # "a Japanese woodblock print of a {}",
         "a good photo of {}",
         "{} reading a book",
         "{} giving a lecture",
         "{} baking cookies",
         "{} holding a glass of wine",
-        " {} going for a walk"
+        " {} going for a walk",
+        " {} playing guitar "
     ]
     len_dataset=len([r for r in dataset])
     print("len",len_dataset)
