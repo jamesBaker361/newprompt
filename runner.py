@@ -31,6 +31,7 @@ import datetime
 import time
 import random
 import shutil
+from datasets import Dataset
 
 parser=argparse.ArgumentParser()
 
@@ -179,14 +180,33 @@ def cleanup_wandb(accelerator:Accelerator):
     shutil.rmtree(run_folder)
 
 def main(args):
-    accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
+    accelerator=Accelerator(mixed_precision=args.mixed_precision)
     print("made accelelratro")
     try:
         accelerator.init_trackers(project_name=args.project_name,config=vars(args))
-    except OSError:
+    except:
+        total, used, free = shutil.disk_usage("/home/jlb638")
+        print(f"Total: {total // (2**30)} GB")
+        print(f"Used: {used // (2**30)} GB")
+        print(f"Free: {free // (2**30)} GB")
+        total, used, free = shutil.disk_usage("/scratch/jlb638")
+        print(f"Total: {total // (2**30)} GB")
+        print(f"Used: {used // (2**30)} GB")
+        print(f"Free: {free // (2**30)} GB")
         print("os error?????")
-        time.sleep(random.randint(10,100))
-        accelerator.init_trackers(project_name=args.project_name,config=vars(args))
+        try:
+            time.sleep(random.randint(10,100))
+            num="".join([str(random.randint(1,100)) for _ in range(10)])
+            wandb_dir=f"/scratch/jlb638/wandb_spare/{num}"
+            os.makedirs(wandb_dir)
+            accelerator.init_trackers(project_name=args.project_name,config=vars(args),init_kwargs={
+                "wandb":{
+                    "dir":wandb_dir
+                }
+            })
+            print(f"created {wandb_dir}")
+        except:
+            print("wandb doesnt work for some stupid fucking reason")
     print("init trackers")
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
@@ -311,7 +331,13 @@ def main(args):
                                                                 args.final_dream_sim_weight
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
+        hf_dict={
+            "index":[],
+            "image":[]
+        }
         for i,image in enumerate(evaluation_image_list):
+            hf_dict["index"].append(i)
+            hf_dict["image"].append(image)
             try:
                 accelerator.log({
                 f"{label}/{args.method_name}_{i}":image
@@ -319,29 +345,43 @@ def main(args):
             except:
                 path=f"{args.image_dir}/{args.method_name}_{i}.png"
                 image.save(path)
-                accelerator.log({
-                    f"{label}/{args.method_name}_{i}":wandb.Image(path)
-                })
+                try:
+                    accelerator.log({
+                        f"{label}/{args.method_name}_{i}":wandb.Image(path)
+                    })
+                except:
+                    pass
                 try:
                     os.remove(path)
                 except:
                     pass
         print(f"after {j} samples:")
+        Dataset.from_dict(hf_dict).push_to_hub(f"jlbaker361/{label}_{args.start}_{args.method_name}")
         for metric,value in metric_dict.items():
             aggregate_dict[metric].append(value)
             print(f"\t{metric} : {value}")
     print(f"after {j} samples:")
+    metric_hf_dict={
+        "name":[],
+        "value":[]
+    }
     for metric,value_list in aggregate_dict.items():
         print(f"\t{metric} {np.mean(value_list)}")
-        accelerator.log({
-            f"{metric}":np.mean(value_list)
-        })
-        accelerator.log({
-            f"{args.method_name}_{metric}":np.mean(value_list)
-        })
-
+        metric_dict["name"].append(metric)
+        metric_dict["value"].append(np.mean(value_list))
+        try:
+            accelerator.log({
+                f"{metric}":np.mean(value_list)
+            })
+            accelerator.log({
+                f"{args.method_name}_{metric}":np.mean(value_list)
+            })
+        except:
+            pass
+    Dataset.from_dict(metric_hf_dict).push_to_hub(f"jlbaker361/{args.start}_{args.method_name}")
     
 if __name__=='__main__':
+    
     # Get current date and time
     current_datetime = datetime.datetime.now()
 

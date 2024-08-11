@@ -216,7 +216,6 @@ def evaluate_one_sample(
     normalization_image_list=[]
 
     max_train_steps=samples_per_epoch*num_epochs
-    wandb_tracker=accelerator.get_tracker("wandb")
 
     src_image_tensor=PILToTensor()(src_image)
     src_image_tensor=rescale_around_zero(src_image_tensor)
@@ -309,9 +308,12 @@ def evaluate_one_sample(
                 vit_similarities=[ cos_sim_rescaled(vit_src_image_embedding,embedding)
                         for embedding in vit_embedding_list]
                 vit_similarities=[vit_weight*v for v in vit_similarities]
-                wandb_tracker.log({
-                    "vit_distance":np.mean(vit_similarities)
-                })
+                try:
+                    accelerator.log({
+                        "vit_distance":np.mean(vit_similarities)
+                    })
+                except:
+                    pass
             if use_vit_content:
                 vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
                 content_similarities=[
@@ -321,9 +323,12 @@ def evaluate_one_sample(
                 content_similarities=[
                     vit_content_weight * v for v in content_similarities
                 ]
-                wandb_tracker.log(
-                    {"content_distance":np.mean(content_similarities)}
-                )
+                try:
+                    accelerator.log(
+                        {"content_distance":np.mean(content_similarities)}
+                    )
+                except:
+                    pass
             if use_vit_style:
                 vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
                 style_similarities=[
@@ -333,9 +338,12 @@ def evaluate_one_sample(
                 style_similarities=[
                     vit_style_weight * v for v in style_similarities
                 ]
-                wandb_tracker.log({
-                    "style_distance":np.mean(style_similarities)
-                })
+                try:
+                    accelerator.log({
+                        "style_distance":np.mean(style_similarities)
+                    })
+                except:
+                    pass
             if use_face_distance:
                 face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
 
@@ -350,17 +358,23 @@ def evaluate_one_sample(
                 face_similarities=[
                     v.detach().cpu().numpy() for v in face_similarities
                 ]
-                wandb_tracker.log({
-                    "face_distance":np.mean(face_similarities)
-                })
+                try:
+                    accelerator.log({
+                        "face_distance":np.mean(face_similarities)
+                    })
+                except:
+                    pass
             if use_img_reward:
                 img_reward_weight=initial_img_reward_weight+((final_img_reward_weight-initial_img_reward_weight) * time_factor)
                 scores=[ir_model.score( prompt.replace(PLACEHOLDER, subject),image) for prompt,image in zip(prompts,images)] #by default IR is normalized to N(0,1) so we rescale
                 scores=[0.5 + v/4 for v in scores]
                 scores=[s*img_reward_weight for s in scores]
-                wandb_tracker.log({
-                    "score":np.mean(scores)
-                })
+                try:
+                    accelerator.log({
+                        "score":np.mean(scores)
+                    })
+                except:
+                    pass
             if use_mse:
                 mse_reward_weight=initial_mse_weight+((final_mse_weight-initial_mse_weight) *time_factor)
                 mse_distances=[
@@ -368,13 +382,16 @@ def evaluate_one_sample(
                 ]
                 mse_distances=[mse_reward_weight*m for m in mse_distances]
                 try:
-                    wandb_tracker.log({
+                    accelerator.log({
                         "mse_distance":np.mean(mse_distances)
                     })
                 except:
-                    wandb_tracker.log({
-                        "mse_distance":np.mean([m.detach().cpu().numpy() for m in mse_distances])
-                    })
+                    try:
+                        accelerator.log({
+                            "mse_distance":np.mean([m.detach().cpu().numpy() for m in mse_distances])
+                        })
+                    except:
+                        pass
             
             if use_fashion_clip:
                 fashion_similarities=[
@@ -394,9 +411,12 @@ def evaluate_one_sample(
                     fashion_similarities=[f.detach().cpu().numpy() for f in fashion_similarities]
                 except:
                     pass
-                wandb_tracker.log({
-                    "fashion_distance":np.mean(fashion_similarities)
-                })
+                try:
+                    accelerator.log({
+                        "fashion_distance":np.mean(fashion_similarities)
+                    })
+                except:
+                    pass
             if use_dream_sim:
                 dream_weight=initial_dream_sim_weight+((final_dream_sim_weight-initial_dream_sim_weight)*time_factor)
                 dream_similarities=[
@@ -405,9 +425,12 @@ def evaluate_one_sample(
                 dream_similarities=[
                     dream.detach().cpu().numpy() for dream in dream_similarities
                 ]
-                wandb_tracker.log({
-                    "dream_distance":np.mean(dream_similarities)
-                })
+                try:
+                    accelerator.log({
+                        "dream_distance":np.mean(dream_similarities)
+                    })
+                except:
+                    pass
                 
 
 
@@ -420,13 +443,16 @@ def evaluate_one_sample(
             except:
                 pass
             try:
-                wandb_tracker.log({
+                accelerator.log({
                     "reward_fn":np.mean(rewards)
                 })
-            except RuntimeError:
-                wandb_tracker.log({
-                    "reward_fn":np.mean([r.detach().cpu().numpy() for r in rewards])
-                })
+            except:
+                try:
+                    accelerator.log({
+                        "reward_fn":np.mean([r.detach().cpu().numpy() for r in rewards])
+                    })
+                except:
+                    pass
             if reward_method==REWARD_PARETO:
                 dominant_list=get_dominant_list(vit_similarities,scores,face_similarities,style_similarities, content_similarities)
                 for i in range(len(scores)):
