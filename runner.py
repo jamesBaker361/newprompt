@@ -356,7 +356,10 @@ def main(args):
                 except:
                     pass
         print(f"after {j} samples:")
-        Dataset.from_dict(hf_dict).push_to_hub(f"jlbaker361/{label}_{args.start}_{args.method_name}")
+        try:
+            Dataset.from_dict(hf_dict).push_to_hub(f"jlbaker361/{label}_{args.start}_{args.method_name}")
+        except:
+            print(f"couldnt upload jlbaker361/{label}_{args.start}_{args.method_name} ")
         for metric,value in metric_dict.items():
             aggregate_dict[metric].append(value)
             print(f"\t{metric} : {value}")
@@ -378,7 +381,10 @@ def main(args):
             })
         except:
             pass
-    Dataset.from_dict(metric_hf_dict).push_to_hub(f"jlbaker361/{args.start}_{args.method_name}")
+    try:
+        Dataset.from_dict(metric_hf_dict).push_to_hub(f"jlbaker361/{args.start}_{args.method_name}")
+    except:
+        print(f"couldnt upload jlbaker361/{args.start}_{args.method_name}")
     
 if __name__=='__main__':
     
