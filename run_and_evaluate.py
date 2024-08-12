@@ -536,15 +536,18 @@ def evaluate_one_sample(
                             num_inference_steps,editing_early_steps) for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==INSTANT:
-        evaluation_image_list=[
+        '''evaluation_image_list=[
             instant_generate_one_sample(src_image,evaluation_prompt.format(subject),
                                         NEGATIVE, num_inference_steps, 
                                         accelerator ) for evaluation_prompt in evaluation_prompt_list
-        ]
+        ]'''
         app = FaceAnalysis(name='antelopev2', root='/scratch/jlb638/instant', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
         app.prepare(ctx_id=0, det_size=(640, 640))
 
-        download_path=snapshot_download("InstantX/InstantID")
+        try:
+            download_path=snapshot_download("InstantX/InstantID")
+        except:
+            download_path=snapshot_download("InstantX/InstantID",force_download=True)
         # Path to InstantID models
         face_adapter = f'{download_path}/ip-adapter.bin'
         controlnet_path = f'{download_path}/ControlNetModel'
