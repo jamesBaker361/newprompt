@@ -498,6 +498,7 @@ def evaluate_one_sample(
         except:
             blip_diffusion_pipe=BlipDiffusionPipeline.from_pretrained(
                 "Salesforce/blipdiffusion", torch_dtype=torch.float32,force_download=True)
+        blip_diffusion_pipe=blip_diffusion_pipe.to(accelerator.device)
         blip_diffusion_pipe=accelerator.prepare(blip_diffusion_pipe)
         evaluation_image_list=[
             blip_diffusion_pipe(
