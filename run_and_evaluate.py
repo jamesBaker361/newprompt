@@ -15,6 +15,7 @@ import re
 import torch
 torch.hub.set_dir("/scratch/jlb638/torch_hub_cache")
 from diffusers.pipelines import BlipDiffusionPipeline
+from insightface.app import FaceAnalysis
 from diffusers import UNet2DConditionModel
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, StableDiffusionPipeline
 from transformers import Blip2Processor, Blip2ForConditionalGeneration
@@ -39,7 +40,7 @@ from dpok_pipeline import DPOKPipeline
 from dpok_scheduler import DPOKDDIMScheduler
 from dpok_reward import ValueMulti
 from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
-from facenet_pytorch import MTCNN
+from facenet_pytorch import MTCNN, InceptionResnetV1,extract_face
 from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model,rescale_around_zero,face_mask
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
@@ -53,6 +54,11 @@ from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 from huggingface_hub import HfApi
 from experiment_helpers.legacy_dreamsim import dreamsim
+from huggingface_hub import hf_hub_download, snapshot_download
+from diffusers.models import ControlNetModel
+from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
+import torchvision
+import cv2
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -171,6 +177,12 @@ def evaluate_one_sample(
     iresnet=get_iresnet_model("cpu")
     #mtcnn,iresnet=accelerator.prepare(mtcnn,iresnet)
     src_face_embedding=get_face_embedding([src_image],mtcnn,iresnet,10)[0]
+    boxes, probs=mtcnn.detect(src_image)
+    if boxes is not None:
+        extracted_face_tensor=extract_face(src_image,boxes[0],112,10)
+    else:
+        extracted_face_tensor=torch.ones((3,112,112))
+    face_image=torchvision.transforms.ToPILImage()(extracted_face_tensor)
     print("subject",subject)
     '''try:
         blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
@@ -528,6 +540,42 @@ def evaluate_one_sample(
             instant_generate_one_sample(src_image,evaluation_prompt.format(subject),
                                         NEGATIVE, num_inference_steps, 
                                         accelerator ) for evaluation_prompt in evaluation_prompt_list
+        ]
+        app = FaceAnalysis(name='antelopev2', root='/scratch/jlb638/instant', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        app.prepare(ctx_id=0, det_size=(640, 640))
+
+        download_path=snapshot_download("InstantX/InstantID")
+        # Path to InstantID models
+        face_adapter = f'{download_path}/ip-adapter.bin'
+        controlnet_path = f'{download_path}/ControlNetModel'
+
+        # load IdentityNet
+        controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=torch.float16)
+
+        pipe = StableDiffusionXLInstantIDPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-xl-base-1.0", controlnet=controlnet, torch_dtype=torch.float16
+        )
+        pipe=pipe.to(accelerator.device)
+
+        # load adapter
+        pipe.load_ip_adapter_instantid(face_adapter)
+
+        
+
+        face_info = app.get(cv2.cvtColor(np.array(face_image), cv2.COLOR_RGB2BGR))
+        face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1] # only use the maximum face
+        face_emb = face_info['embedding']
+        face_kps = draw_kps(face_image, face_info['kps'])
+
+        pipe.set_ip_adapter_scale(0.8)
+
+        evaluation_image_list=[
+            pipe(evaluation_prompt.format(subject),image_embeds=face_emb, image=face_kps, 
+                 controlnet_conditioning_scale=0.8,
+                 num_inference_steps=num_inference_steps,
+                neg_prompt=NEGATIVE,
+                height=512,
+                width=512,).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==IP_ADAPTER or method_name==FACE_IP_ADAPTER:
         pipeline=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5",safety_checker=None)
