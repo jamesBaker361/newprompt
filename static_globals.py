@@ -17,6 +17,7 @@ BODY_REWARD="body_reward" #fashion + face
 STYLE_REWARD="style_reward"
 DREAM_REWARD="dream_reward"
 DDPO_MULTI="ddpo_multi"
+FACE_PROBS="face_probs"
 
 PLACEHOLDER="<S>"
 
