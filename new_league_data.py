@@ -16,8 +16,12 @@ from experiment_helpers.measuring import get_face_caption,get_fashion_caption
 from experiment_helpers.elastic_face_iresnet import MTCNN
 from experiment_helpers.clothing import get_segmentation_model
 import os
+import time
+from gpu import print_details
 
-limit=256
+print_details()
+
+limit=10000
 
 # URL of the webpage containing the links to the images
 url = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/"
@@ -80,7 +84,7 @@ for link in links:
     if href!=None and title !=None and title+"/"==href and title not in ["cassiopeia","drmundo"]:  # Add other extensions if needed
         
         #skins/skin30/images/aatrox_splash_uncentered_30.jpg
-        for num in range(50):
+        for num in range(99):
             #print(title,num)
             formatted_num=str(num)
             if num<10:
@@ -92,7 +96,15 @@ for link in links:
                 head_response = requests.head(file_url)
                 if head_response.status_code == 200:
                     print(file_url)
-                    img_response = requests.get(file_url)
+                    try:
+                        img_response = requests.get(file_url,headers={
+                            "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0"
+                        })
+                    except:
+                        time.sleep(30)
+                        img_response = requests.get(file_url,headers={
+                            "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0"
+                        })
                     img_response.raise_for_status()
                     img_data = BytesIO(img_response.content)
 
@@ -125,11 +137,9 @@ for link in links:
                                 #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
                                 #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
                                 #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
-                            #img.save(file_name)
-                    #print(f"Downloaded {file_name}")
-                            limit-=1
-                            if limit %10==0:
-                                Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_256")
-                                load_dataset("jlbaker361/new_league_data_256")
-                            if limit<=0:
-                                exit()
+                                limit-=1
+                                if limit %10==0:
+                                    Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_max")
+                                    load_dataset("jlbaker361/new_league_data_max")
+                                if limit<=0:
+                                    exit()
