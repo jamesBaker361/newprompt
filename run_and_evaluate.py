@@ -164,7 +164,10 @@ def evaluate_one_sample(
         multi_rewards:list,
         use_dream_sim:bool,
         initial_dream_sim_weight:float,
-        final_dream_sim_weight:float)->dict:
+        final_dream_sim_weight:float,
+        use_face_probs:bool,
+        initial_face_probs_weight:float,
+        final_face_probs_weight:float)->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
