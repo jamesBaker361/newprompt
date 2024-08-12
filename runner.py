@@ -183,7 +183,9 @@ def main(args):
     accelerator=Accelerator(mixed_precision=args.mixed_precision)
     print("made accelelratro")
     try:
+        accelerator=Accelerator(mixed_precision=args.mixed_precision,log_with="wandb")
         accelerator.init_trackers(project_name=args.project_name,config=vars(args))
+        print("init trackers")
     except:
         total, used, free = shutil.disk_usage("/home/jlb638")
         print(f"Total: {total // (2**30)} GB")
@@ -199,6 +201,7 @@ def main(args):
             num="".join([str(random.randint(1,100)) for _ in range(10)])
             wandb_dir=f"/scratch/jlb638/wandb_spare/{num}"
             os.makedirs(wandb_dir)
+            accelerator=Accelerator(mixed_precision=args.mixed_precision,log_with="wandb")
             accelerator.init_trackers(project_name=args.project_name,config=vars(args),init_kwargs={
                 "wandb":{
                     "dir":wandb_dir
@@ -207,7 +210,7 @@ def main(args):
             print(f"created {wandb_dir}")
         except:
             print("wandb doesnt work for some stupid fucking reason")
-    print("init trackers")
+    
     dataset=load_dataset(args.src_dataset,split="train")
     print('dataset.column_names',dataset.column_names)
     aggregate_dict={
@@ -372,8 +375,8 @@ def main(args):
     }
     for metric,value_list in aggregate_dict.items():
         print(f"\t{metric} {np.mean(value_list)}")
-        metric_dict["name"].append(metric)
-        metric_dict["value"].append(np.mean(value_list))
+        metric_hf_dict["name"].append(metric)
+        metric_hf_dict["value"].append(np.mean(value_list))
         try:
             accelerator.log({
                 f"{metric}":np.mean(value_list)
