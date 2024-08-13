@@ -57,6 +57,7 @@ from experiment_helpers.legacy_dreamsim import dreamsim
 from huggingface_hub import hf_hub_download, snapshot_download
 from diffusers.models import ControlNetModel
 from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
+from openpose_better import OpenPoseDetectorProbs
 import torchvision
 import cv2
 
@@ -172,6 +173,7 @@ def evaluate_one_sample(
         initial_pose_probs_weight:float,
         final_pose_probs_weight:float)->dict:
     os.makedirs(image_dir,exist_ok=True)
+    detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -306,7 +308,8 @@ def evaluate_one_sample(
             print(images)
             vit_similarities=[0.0 for _ in images]
             face_similarities=[0.0 for _ in images]
-            face_prob_similarities=[0.0 for _ in images]
+            face_probabilities=[0.0 for _ in images]
+            pose_probabilities=[0.0 for _ in images]
             rewards=[0.0 for _ in images]
             scores=[0.0 for _ in images]
             style_similarities=[0.0 for _ in images]
@@ -364,14 +367,27 @@ def evaluate_one_sample(
                 except:
                     pass
             if use_face_probs:
-                face_prob_similarities=[]
+                face_probabilities=[]
                 for image in images:
                     boxes,probs=mtcnn.detect(image)
                     if boxes is None or probs is None:
-                        face_prob_similarities.append(0.0)
+                        face_probabilities.append(0.0)
                     else:
-                        face_prob_similarities.append(probs[0])
-            
+                        face_probabilities.append(probs[0])
+            if use_pose_probs:
+                pose_probs_weight=initial_pose_probs_weight+ ((final_pose_probs_weight-initial_pose_probs_weight) * time_factor)
+                pose_probabilities=[]
+                for image in images:
+                    probs=detector.probs(image)
+
+                    pose_probabilities.append(pose_probs_weight* probs)
+                try:
+                    accelerator.log({
+                        "pose_probs":np.mean(pose_probabilities)
+                    })
+                except:
+                    pass
+
             if use_face_distance:
                 face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
 
@@ -463,9 +479,9 @@ def evaluate_one_sample(
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas+drm+fps for d,f,s,vs,vc,m,fas,drm,fps in zip(vit_similarities,face_similarities,
+                d+f+s+vs+vc+m+fas+drm+fps+ppb for d,f,s,vs,vc,m,fas,drm,fps,ppb in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,
-                                                       mse_distances,fashion_similarities,dream_similarities,face_prob_similarities)
+                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities,pose_probabilities)
             ]
             try:
                 rewards=[r.detach().cpu().numpy() for r in rewards]
