@@ -131,7 +131,7 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
@@ -336,7 +336,10 @@ def main(args):
                                                                 args.final_dream_sim_weight,
                                                                 args.use_face_probs,
                                                                 args.initial_face_probs_weight,
-                                                                args.final_face_probs_weight
+                                                                args.final_face_probs_weight,
+                                                                args.use_pose_probs,
+                                                                args.initial_pose_probs_weight,
+                                                                args.final_pose_probs_weight
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={

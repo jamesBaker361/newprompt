@@ -167,7 +167,10 @@ def evaluate_one_sample(
         final_dream_sim_weight:float,
         use_face_probs:bool,
         initial_face_probs_weight:float,
-        final_face_probs_weight:float)->dict:
+        final_face_probs_weight:float,
+        use_pose_probs:bool,
+        initial_pose_probs_weight:float,
+        final_pose_probs_weight:float)->dict:
     os.makedirs(image_dir,exist_ok=True)
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
@@ -303,6 +306,7 @@ def evaluate_one_sample(
             print(images)
             vit_similarities=[0.0 for _ in images]
             face_similarities=[0.0 for _ in images]
+            face_prob_similarities=[0.0 for _ in images]
             rewards=[0.0 for _ in images]
             scores=[0.0 for _ in images]
             style_similarities=[0.0 for _ in images]
@@ -359,6 +363,15 @@ def evaluate_one_sample(
                     })
                 except:
                     pass
+            if use_face_probs:
+                face_prob_similarities=[]
+                for image in images:
+                    boxes,probs=mtcnn.detect(image)
+                    if boxes is None or probs is None:
+                        face_prob_similarities.append(0.0)
+                    else:
+                        face_prob_similarities.append(probs[0])
+            
             if use_face_distance:
                 face_weight=initial_face_weight+ ((final_face_weight-initial_face_weight)*time_factor)
 
@@ -450,8 +463,9 @@ def evaluate_one_sample(
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas+drm for d,f,s,vs,vc,m,fas,drm in zip(vit_similarities,face_similarities,
-                                                       scores,style_similarities, content_similarities,mse_distances,fashion_similarities,dream_similarities)
+                d+f+s+vs+vc+m+fas+drm+fps for d,f,s,vs,vc,m,fas,drm,fps in zip(vit_similarities,face_similarities,
+                                                       scores,style_similarities, content_similarities,
+                                                       mse_distances,fashion_similarities,dream_similarities,face_prob_similarities)
             ]
             try:
                 rewards=[r.detach().cpu().numpy() for r in rewards]
