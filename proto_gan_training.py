@@ -20,7 +20,7 @@ import numpy as np
 import wandb
 from huggingface_hub import HfApi
 api = HfApi()
-from PIL import Image
+from PIL import Image,UnidentifiedImageError
 
 parser=argparse.ArgumentParser()
 
@@ -200,9 +200,12 @@ def main(args):
         for index,fake in enumerate(fixed_images):
             path=f"{args.image_dir}{index}.jpg"
             save_image(fake,path)
-            accelerator.log({
-                f"image_{index}":wandb.Image(path)
-            })
+            try:
+                accelerator.log({
+                    f"image_{index}":wandb.Image(path)
+                })
+            except UnidentifiedImageError:
+                print(f"couldnt find {path} during epoch {e}")
         if e % args.save_interval == 0 or e == args.epochs:
             backup_para = copy_G_params(netG)
             load_params(netG, avg_param_G)
