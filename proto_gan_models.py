@@ -273,8 +273,9 @@ class DownBlockComp(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, ndf=64, nc=3, im_size=512):
+    def __init__(self, ndf=64, nc=3, im_size=512,batch_size=8):
         super(Discriminator, self).__init__()
+        self.batch_size=batch_size
         self.ndf = ndf
         self.im_size = im_size
 
@@ -340,7 +341,7 @@ class Discriminator(nn.Module):
         feat_last = self.down_64(feat_32)
         feat_last = self.se_8_64(feat_8, feat_last)
         feat_out = F.avg_pool2d(feat_last,8)
-        feat_out = feat_out.view(8,512)
+        feat_out = feat_out.view(self.batch_size,512)
         feat_out_mean = torch.mean(feat_out,dim=1)
         feat_out_var = torch.var(feat_out,dim=1)
         #rf_0 = torch.cat([self.rf_big_1(feat_last).view(-1),self.rf_big_2(feat_last).view(-1)])
