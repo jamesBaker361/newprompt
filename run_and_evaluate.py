@@ -60,6 +60,7 @@ from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPip
 from openpose_better import OpenPoseDetectorProbs
 import torchvision
 import cv2
+from experiment_helpers.background import remove_background
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -172,11 +173,15 @@ def evaluate_one_sample(
         use_pose_probs:bool,
         initial_pose_probs_weight:float,
         final_pose_probs_weight:float,
-        remove_background:bool)->dict:
+        remove_background_flag:bool)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
+    if remove_background_flag:
+        removed_src=remove_background(src_image)
+    else:
+        removed_src=src_image
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
     ir_model.eval()
@@ -234,11 +239,11 @@ def evaluate_one_sample(
 
 
 
-    normalization_image_list=[]
+    
 
     max_train_steps=samples_per_epoch*num_epochs
 
-    src_image_tensor=PILToTensor()(src_image)
+    src_image_tensor=PILToTensor()(removed_src)
     src_image_tensor=rescale_around_zero(src_image_tensor)
 
     mse_vae=AutoencoderKL.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="vae")
@@ -286,7 +291,7 @@ def evaluate_one_sample(
         
     fashion_src_embedding=get_fashion_embedding(fashion_src,fashion_clip_processor, fashion_clip_model)
     vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
-        vit_processor,vit_model,[src_image],False
+        vit_processor,vit_model,[removed_src],False
     )
     vit_src_image_embedding=vit_src_image_embedding_list[0]
     vit_src_style_embedding=vit_src_style_embedding_list[0]
@@ -296,7 +301,7 @@ def evaluate_one_sample(
     accelerator.free_memory()
     
     dream_model, dream_preprocess = dreamsim(pretrained=True,cache_dir="/scratch/jlb638/dreamsim",device=accelerator.device)
-    src_dream_embedding=dream_model.embed(dream_preprocess(src_image).to(accelerator.device))[0]
+    src_dream_embedding=dream_model.embed(dream_preprocess(removed_src).to(accelerator.device))[0]
 
     
     
