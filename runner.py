@@ -158,6 +158,7 @@ parser.add_argument("--per_prompt_stat_tracking",action="store_true")
 parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
 parser.add_argument("--use_fashion_clip_segmented",action="store_true")
 parser.add_argument("--multi_rewards",nargs="*")
+parser.add_argument("--remove_background",action="store_true")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -339,7 +340,8 @@ def main(args):
                                                                 args.final_face_probs_weight,
                                                                 args.use_pose_probs,
                                                                 args.initial_pose_probs_weight,
-                                                                args.final_pose_probs_weight
+                                                                args.final_pose_probs_weight,
+                                                                args.remove_background
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={

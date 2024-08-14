@@ -171,7 +171,8 @@ def evaluate_one_sample(
         final_face_probs_weight:float,
         use_pose_probs:bool,
         initial_pose_probs_weight:float,
-        final_pose_probs_weight:float)->dict:
+        final_pose_probs_weight:float,
+        remove_background:bool)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
