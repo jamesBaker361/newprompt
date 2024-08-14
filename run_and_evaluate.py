@@ -257,7 +257,7 @@ def evaluate_one_sample(
             #print('image_tensor.size(),src_image_tensor.size() ',image_tensor.size(),src_image_tensor.size() )
             loss= F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
         torch.cuda.empty_cache()
-        return loss.detach().cpu().numpy()[0]
+        return loss.detach().cpu().numpy()
 
 
 
