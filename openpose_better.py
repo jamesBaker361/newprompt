@@ -14,9 +14,10 @@ class OpenPoseDetectorProbs(OpenposeDetector):
         if len(poses)==0:
             return 0.0
         
-        n_parts=len(poses[0].body.keypoints)
+        total_score=poses[0].body.total_score
+        total_parts=poses[0].body.total_parts
 
-        score=sum([ k.score for k in poses[0].body.keypoints])
+        
 
-        return float(score)/n_parts
+        return float(total_score)/total_parts
     
