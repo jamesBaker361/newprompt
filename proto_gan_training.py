@@ -20,6 +20,7 @@ import numpy as np
 import wandb
 from huggingface_hub import HfApi
 api = HfApi()
+from PIL import Image
 
 parser=argparse.ArgumentParser()
 
@@ -30,15 +31,16 @@ parser.add_argument("--epochs",default=100,type=int)
 parser.add_argument("--ngf",default=64, type=int)
 parser.add_argument("--ndf",type=int,default=64)
 parser.add_argument("--nz",type=int,default=256)
-parser.add_argument("--batch_size",type=int,default=4)
+parser.add_argument("--batch_size",type=int,default=8)
 parser.add_argument("--nlr",type=float,default=0.0002)
 parser.add_argument("--nbeta1",type=float,default=0.5)
 parser.add_argument("--checkpoint",type=str, default="None")
-parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_256")
-parser.add_argument("--save_interval",type=int,default=10)
+parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_max")
+parser.add_argument("--save_interval",type=int,default=100)
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/proto_images/")
 parser.add_argument("--checkpoint_dir",type=str,default="/scratch/jlb638/proto_checkpoints/")
 parser.add_argument("--repo_id",type=str,default="jlbaker361/proto-gan-512")
+parser.add_argument("--test_data",action="store_true")
 
 def crop_image_by_part(image, part):
     hw = image.shape[2]//2
@@ -117,6 +119,8 @@ def main(args):
         del ckpt
 
     data=[row["splash"] for row in load_dataset(args.hf_dataset,split="train")]
+    if args.test_data:
+        data=[Image.open("boot.jpg") for _ in range(32)]
     i=0
     while len(data) %args.batch_size!=0:
         data.append(data[i])
