@@ -118,6 +118,8 @@ def main(args):
 
     fixed_noise = torch.FloatTensor(args.batch_size, args.img_size//8,args.img_size//8,args.decoder_embed_dim).normal_(0, 1).to(device)
     fixed_images=batched_data[0]
+    for fixed in fixed_images:
+        print("fixed range",torch.max(fixed),torch.min(fixed))
     # Set optimizer
     param_groups = [p for p in model_without_ddp.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(param_groups, lr=args.lr, weight_decay=5e-2, betas=(0.9, 0.95))  # 原来是5E-2
@@ -154,8 +156,9 @@ def main(args):
         accelerator.log(metrics)
         with torch.no_grad():
             _,pred,_=model(fixed_images)
-            print('pred size',pred.size())
+            #print('pred size',pred.size())
             pred=model.unpatchify(pred)
+            print("pred range",torch.max(pred),torch.min(pred))
             pred=pred.add(1).mul(0.5)
             for index,image in enumerate(pred):
                 src_image=fixed_images[index]
