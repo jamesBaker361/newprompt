@@ -116,8 +116,8 @@ def main(args):
     model.to(device)
     model_without_ddp = model
 
-    fixed_noise = torch.FloatTensor(args.batch_size, args.img_size//8,args.img_size//8,args.decoder_embed_dim).normal_(0, 1).to(device)
-    fixed_images=batched_data[0]
+    #fixed_noise = torch.FloatTensor(args.batch_size, args.img_size//8,args.img_size//8,args.decoder_embed_dim).normal_(0, 1).to(device)
+    fixed_images=batched_data[0].to(device)
     for fixed in fixed_images:
         print("fixed range",torch.max(fixed),torch.min(fixed))
     # Set optimizer
