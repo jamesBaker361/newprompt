@@ -16,6 +16,8 @@ import numpy as np
 import wandb
 from functools import partial
 from torch import nn
+from huggingface_hub import HfApi
+api = HfApi()
 
 parser=argparse.ArgumentParser()
 
@@ -78,6 +80,7 @@ parser.add_argument("--test_data",action="store_true")
 
 
 def main(args):
+    api.create_repo(args.repo_id,exist_ok=True)
     for folder in [args.image_dir, args.checkpoint_dir]:
         os.makedirs(folder,exist_ok=True)
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
@@ -185,6 +188,9 @@ def main(args):
                 })'''
         if e%args.save_interval==0:
             torch.save(model.state_dict(),f"{args.checkpoint_dir}model_{e}.pt")
+            api.upload_folder(repo_id=args.repo_id,
+                              repo_type="model",
+                              folder_path=args.checkpoint_dir)
 
 
 
