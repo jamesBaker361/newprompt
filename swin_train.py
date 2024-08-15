@@ -161,7 +161,7 @@ def main(args):
             print("pred range",torch.max(pred),torch.min(pred))
             pred=pred.add(1).mul(0.5)
             for index,image in enumerate(pred):
-                src_image=fixed_images[index]
+                src_image=fixed_images[index].add(1).mul(0.5)
                 
                 path=f"{args.image_dir}pred_{index}.jpg"
                 save_image([src_image,image],path)
