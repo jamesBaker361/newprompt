@@ -68,7 +68,7 @@ parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
 parser.add_argument('--num_workers', default=8, type=int)
 parser.add_argument('--pin_mem', action='store_true',
                     help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
-parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_256")
+parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_max_plus")
 parser.add_argument("--save_interval",type=int,default=10)
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/swin_images/")
 parser.add_argument("--checkpoint_dir",type=str,default="/scratch/jlb638/swin_checkpoints/")
@@ -103,6 +103,8 @@ def main(args):
     for j in range(0,len(data),args.batch_size):
         batched_data.append(data[j:j+args.batch_size])
     batched_data=[torch.stack(batch) for batch in batched_data]
+
+    print(f"each epoch has {len(batched_data)} batches")
 
     # Set model
     model = SwinMAE(norm_pix_loss=args.norm_pix_loss, 
