@@ -311,7 +311,7 @@ def evaluate_one_sample(
     def get_reward_fn():
         
         def _reward_fn(images, prompts, epoch,):
-            print(images)
+            #print(images)
             vit_similarities=[0.0 for _ in images]
             face_similarities=[0.0 for _ in images]
             face_probabilities=[0.0 for _ in images]
