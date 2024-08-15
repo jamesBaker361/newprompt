@@ -160,6 +160,8 @@ def main(args):
         metrics={
             "loss":np.mean(loss_list)
         }
+        for k,v in metrics.items():
+            print("\t",k,v)
         accelerator.log(metrics)
         with torch.no_grad():
             _,pred,_=model(fixed_images)
