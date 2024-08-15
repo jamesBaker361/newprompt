@@ -104,7 +104,7 @@ def main(args):
         batched_data.append(data[j:j+args.batch_size])
     batched_data=[torch.stack(batch) for batch in batched_data]
 
-    print(f"each epoch has {len(batched_data)} batches")
+    
 
     # Set model
     model = SwinMAE(norm_pix_loss=args.norm_pix_loss, 
@@ -120,6 +120,8 @@ def main(args):
 
     #fixed_noise = torch.FloatTensor(args.batch_size, args.img_size//8,args.img_size//8,args.decoder_embed_dim).normal_(0, 1).to(device)
     fixed_images=batched_data[0].to(device)
+    batched_data=batched_data[1:]
+    print(f"each epoch has {len(batched_data)} batches")
     for fixed in fixed_images:
         print("fixed range",torch.max(fixed),torch.min(fixed))
     # Set optimizer
