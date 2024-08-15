@@ -200,21 +200,21 @@ class SwinMAE(nn.Module):
         return layers_up
 
     def forward_encoder(self, x):
-        print(x.size())
+        #print(x.size())
         x = self.patch_embed(x)
-        print('x = self.patch_embed(x)',x.size())
+        #print('x = self.patch_embed(x)',x.size())
 
         x, mask = self.window_masking(x, remove=False, mask_len_sparse=False)
-        print(' self.window_masking',x.size())
+        #print(' self.window_masking',x.size())
 
         for n,layer in enumerate(self.layers):
             x = layer(x)
-            print(n,'x = layer(x)',x.size())
+            #print(n,'x = layer(x)',x.size())
 
         return x, mask
 
     def forward_decoder(self, x):
-        print('forward_decoder',x.size())
+        #print('forward_decoder',x.size())
        
         x = self.first_patch_expanding(x)
 
