@@ -167,9 +167,12 @@ def main(args):
                 
                 path=f"{args.image_dir}pred_{index}.jpg"
                 save_image([src_image,image],path)
-                accelerator.log({
-                    f"pred_{index}":wandb.Image(path)
-                })
+                try:
+                    accelerator.log({
+                        f"pred_{index}":wandb.Image(path)
+                    })
+                except:
+                    print("couldnt upload ",path)
             '''fake_images=model.forward_decoder(fixed_noise)
             fake_images=fake_images.add(1).mul(0.5)
             for index,image in enumerate(fake_images):
