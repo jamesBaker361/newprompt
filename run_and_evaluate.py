@@ -327,9 +327,14 @@ def evaluate_one_sample(
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
                 time_factor=float(epoch)/float(total_steps)
+
+            removed_images=images
+            if remove_background_flag:
+                removed_images=[remove_background(image) for image in images]
+
             if use_vit_content or use_vit_style or use_vit_distance:
                 vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                    vit_processor,vit_model,images,False
+                    vit_processor,vit_model,removed_images,False
                 )
             if use_vit_distance:
                 vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
@@ -428,7 +433,7 @@ def evaluate_one_sample(
             if use_mse:
                 mse_reward_weight=initial_mse_weight+((final_mse_weight-initial_mse_weight) *time_factor)
                 mse_distances=[
-                    -1.0* get_mse_from_src(image) for image in images
+                    -1.0* get_mse_from_src(image) for image in removed_images
                 ]
                 mse_distances=[mse_reward_weight*m for m in mse_distances]
                 try:
@@ -470,7 +475,7 @@ def evaluate_one_sample(
             if use_dream_sim:
                 dream_weight=initial_dream_sim_weight+((final_dream_sim_weight-initial_dream_sim_weight)*time_factor)
                 dream_similarities=[
-                    dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]) for image in images
+                    dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]) for image in removed_images
                 ]
                 dream_similarities=[
                     dream.detach().cpu().numpy() for dream in dream_similarities
