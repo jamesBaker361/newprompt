@@ -131,7 +131,7 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs","swin"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
@@ -159,6 +159,7 @@ parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
 parser.add_argument("--use_fashion_clip_segmented",action="store_true")
 parser.add_argument("--multi_rewards",nargs="*")
 parser.add_argument("--remove_background",action="store_true")
+parser.add_argument("--pretrained_swin",type=str,default="jlbaker361/swin_10000_8_512/model_1000.pt")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -341,7 +342,11 @@ def main(args):
                                                                 args.use_pose_probs,
                                                                 args.initial_pose_probs_weight,
                                                                 args.final_pose_probs_weight,
-                                                                args.remove_background
+                                                                args.remove_background,
+                                                                 args.use_swin,
+                                                                args.initial_swin_weight,
+                                                                args.final_swin_weight,
+                                                                args.pretrained_swin
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
