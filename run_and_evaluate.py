@@ -597,8 +597,8 @@ def evaluate_one_sample(
                 guidance_scale=7.5,
                 num_inference_steps=num_inference_steps,
                 neg_prompt=NEGATIVE,
-                height=512,
-                width=512,
+                height=height,
+                width=width,
                 ).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==ELITE:
