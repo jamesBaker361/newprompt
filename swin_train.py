@@ -17,6 +17,8 @@ import wandb
 from functools import partial
 from torch import nn
 from huggingface_hub import HfApi
+from experiment_helpers.checkpoint import find_latest_checkpoint
+import re
 api = HfApi()
 
 parser=argparse.ArgumentParser()
@@ -76,6 +78,7 @@ parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/swin_images/
 parser.add_argument("--checkpoint_dir",type=str,default="/scratch/jlb638/swin_checkpoints/")
 parser.add_argument("--repo_id",type=str,default="jlbaker361/swin-512")
 parser.add_argument("--test_data",action="store_true")
+parser.add_argument("--load_saved",action="store_true")
 
 
 
@@ -118,6 +121,16 @@ def main(args):
                                           patch_size=args.patch_size,
                                           norm_layer=partial(nn.LayerNorm, eps=1e-6),
                                           window_size=args.window_size)
+    
+    if args.load_saved:
+        pattern= re.compile(r"model_(\d+)\.pt")
+        path,current_epoch=find_latest_checkpoint(args.checkpoint_dir,pattern)
+        
+        args.start_epoch=current_epoch
+        path=os.path.join(args.checkpoint_dir,path)
+        print(f"loadinf from {path}")
+        state_dict=torch.load(path)
+        model.load_state_dict(state_dict)
     model.to(device)
     model_without_ddp = model
 
