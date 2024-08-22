@@ -23,6 +23,7 @@ from PIL import Image,UnidentifiedImageError
 import wandb
 import ImageReward as image_reward
 reward_cache="/scratch/jlb638/ImageReward"
+from functools import partial
 from static_globals import *
 from accelerate import Accelerator
 from transformers import CLIPProcessor, CLIPModel,ViTImageProcessor, ViTModel,CLIPTokenizer
@@ -59,9 +60,11 @@ from diffusers.models import ControlNetModel
 from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
 from openpose_better import OpenPoseDetectorProbs
 import torchvision
+from torchvision import transforms
 import cv2
 from experiment_helpers.background import remove_background,remove_background_birefnet
 from transformers import AutoModelForImageSegmentation
+from swin_mae import SwinMAE
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -243,6 +246,38 @@ def evaluate_one_sample(
     #vit_model.to(accelerator.device)
     #vit_model=accelerator.prepare(vit_model)
 
+    width,height=src_image.size
+
+    if use_swin:
+        swin_model = SwinMAE(norm_pix_loss=False, 
+                                          mask_ratio=0.75,
+                                          embed_dim=64,
+                                          decoder_embed_dim=512,
+                                          img_size=width,
+                                          patch_size=4,
+                                          norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
+                                          window_size=8)
+        state_dict=torch.load(pretrained_swin)
+        swin_model.load(state_dict)
+        swin_model=model.to(accelerator.device)
+
+        transform_list = [
+            transforms.Resize((width,height)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        ]
+        swin_trans = transforms.Compose(transform_list)
+        src_swin_tensor=swin_trans(removed_src).unsqueeze(0).to(accelerator.device)
+        src_swin_embedding=swin_model.forward_encoder(src_swin_tensor)
+
+        def get_swin_mse(image:Image.Image):
+            tensor_img=swin_trans(image).unsqueeze(0).to(accelerator.device)
+            swin_embedding=swin_model.forward_encoder(tensor_img)
+
+            loss=F.mse_loss(swin_embedding,src_swin_embedding, reduction="mean")
+            torch.cuda.empty_cache()
+            return loss.detach().cpu().numpy()
 
 
     
@@ -329,6 +364,7 @@ def evaluate_one_sample(
             mse_distances=[0.0 for _ in images]
             fashion_similarities=[0.0 for _ in images]
             dream_similarities=[0.0 for _ in images]
+            swin_distances=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
@@ -366,6 +402,19 @@ def evaluate_one_sample(
                     accelerator.log(
                         {"content_distance":np.mean(content_similarities)}
                     )
+                except:
+                    pass
+
+            if use_swin:
+                swin_weight=initial_swin_weight+ ((final_swin_weight-initial_swin_weight)* time_factor)
+                swin_distances=[
+                    -1.0 * get_swin_mse(image) for image in removed_images
+                ]
+                swin_distances=[swin_weight * sww for sww in swin_distances]
+                try:
+                    accelerator.log({
+                        "swin_distances":np.mean(swin_distances)
+                    })
                 except:
                     pass
             if use_vit_style:
@@ -496,9 +545,9 @@ def evaluate_one_sample(
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas+drm+fps+ppb for d,f,s,vs,vc,m,fas,drm,fps,ppb in zip(vit_similarities,face_similarities,
+                d+f+s+vs+vc+m+fas+drm+fps+ppb+ssw for d,f,s,vs,vc,m,fas,drm,fps,ppb,ssw in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,
-                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities,pose_probabilities)
+                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities,pose_probabilities,swin_distances)
             ]
             try:
                 rewards=[r.detach().cpu().numpy() for r in rewards]
