@@ -159,7 +159,7 @@ parser.add_argument("--ddpo_save_hf_tag",type=str,default="ddpo")
 parser.add_argument("--use_fashion_clip_segmented",action="store_true")
 parser.add_argument("--multi_rewards",nargs="*")
 parser.add_argument("--remove_background",action="store_true")
-parser.add_argument("--pretrained_swin",type=str,default="jlbaker361/swin_10000_8_512/model_1000.pt")
+parser.add_argument("--pretrained_swin",type=str,default="/scratch/jlb638/swin_checkpoints/10000_8_512/model_2240.pt")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
