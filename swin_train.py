@@ -73,7 +73,7 @@ parser.add_argument('--num_workers', default=8, type=int)
 parser.add_argument('--pin_mem', action='store_true',
                     help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
 parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_max_plus")
-parser.add_argument("--save_interval",type=int,default=10)
+parser.add_argument("--save_interval",type=int,default=50)
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/swin_images/")
 parser.add_argument("--checkpoint_dir",type=str,default="/scratch/jlb638/swin_checkpoints/")
 parser.add_argument("--repo_id",type=str,default="jlbaker361/swin-512")
