@@ -269,11 +269,11 @@ def evaluate_one_sample(
         ]
         swin_trans = transforms.Compose(transform_list)
         src_swin_tensor=swin_trans(removed_src).unsqueeze(0).to(accelerator.device)
-        src_swin_embedding=swin_model.forward_encoder(src_swin_tensor)
+        src_swin_embedding,_=swin_model.forward_encoder(src_swin_tensor)
 
         def get_swin_mse(image:Image.Image):
             tensor_img=swin_trans(image).unsqueeze(0).to(accelerator.device)
-            swin_embedding=swin_model.forward_encoder(tensor_img)
+            swin_embedding,_=swin_model.forward_encoder(tensor_img)
 
             loss=F.mse_loss(swin_embedding,src_swin_embedding, reduction="mean")
             torch.cuda.empty_cache()
