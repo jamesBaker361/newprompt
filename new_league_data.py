@@ -80,7 +80,24 @@ if torch.cuda.is_available():
 blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 blip_conditional_gen = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b").eval()
 
-
+def is_more_than_90_black(image):
+    # Convert image to grayscale
+    grayscale_image = image.convert("L")
+    
+    # Convert the grayscale image to a NumPy array
+    image_array = np.array(grayscale_image)
+    
+    # Count the number of black pixels (value == 0)
+    black_pixels = np.sum(image_array == 0)
+    
+    # Get the total number of pixels
+    total_pixels = image_array.size
+    
+    # Calculate the percentage of black pixels
+    black_pixel_percentage = black_pixels / total_pixels
+    
+    # Check if more than 90% of the image is black
+    return black_pixel_percentage > 0.90
 
 segmentation_model=get_segmentation_model(device,torch.float32)
 mtcnn=MTCNN(device=device)
@@ -161,16 +178,17 @@ for link in links:
                                 proportion_poses = detector.detect_poses(array_img)
                                 if len(proportion_poses)==1:
                                     img=remove_background_birefnet(img,birefnet)
-                                    src_dict["label"].append(label+f"_{x}")
-                                    src_dict["splash"].append(img)
-                                    src_dict["subject"].append("character")
-                                    #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
-                                    #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
-                                    #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
-                                    #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
-                                    limit-=1
-                                    if limit %10==0:
-                                        Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_plus_noback")
-                                        load_dataset("jlbaker361/new_league_data_solo_plus_noback")
-                                    if limit<=0:
-                                        exit()
+                                    if is_more_than_90_black(img)==False:
+                                        src_dict["label"].append(label+f"_{x}")
+                                        src_dict["splash"].append(img)
+                                        src_dict["subject"].append("character")
+                                        #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
+                                        #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
+                                        #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
+                                        #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
+                                        limit-=1
+                                        if limit %10==0:
+                                            Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
+                                            load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
+                                        if limit<=0:
+                                            exit()
