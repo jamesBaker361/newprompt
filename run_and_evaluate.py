@@ -65,6 +65,7 @@ import cv2
 from experiment_helpers.background import remove_background,remove_background_birefnet
 from transformers import AutoModelForImageSegmentation
 from swin_mae import SwinMAE
+from proto_gan_models import Discriminator
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -251,6 +252,14 @@ def evaluate_one_sample(
     #vit_model=accelerator.prepare(vit_model)
 
     width,height=src_image.size
+    
+    transform_list = [
+            transforms.Resize((width,height)),
+            #transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        ]
+    composed_trans = transforms.Compose(transform_list)
 
     if use_swin:
         swin_model = SwinMAE(norm_pix_loss=False, 
@@ -265,25 +274,30 @@ def evaluate_one_sample(
         swin_model.load_state_dict(state_dict)
         swin_model=swin_model.to(accelerator.device)
 
-        transform_list = [
-            transforms.Resize((width,height)),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-        ]
-        swin_trans = transforms.Compose(transform_list)
-        src_swin_tensor=swin_trans(removed_src).unsqueeze(0).to(accelerator.device)
+       
+        src_swin_tensor=composed_trans(removed_src).unsqueeze(0).to(accelerator.device)
         src_swin_embedding,_=swin_model.forward_encoder(src_swin_tensor)
         src_swin_embedding=torch.flatten(src_swin_embedding)
 
         def get_swin_similarity(image:Image.Image):
-            tensor_img=swin_trans(image).unsqueeze(0).to(accelerator.device)
+            tensor_img=composed_trans(image).unsqueeze(0).to(accelerator.device)
             swin_embedding,_=swin_model.forward_encoder(tensor_img)
             swin_embedding=torch.flatten(swin_embedding)
             sim=cos_sim_rescaled(swin_embedding,src_swin_embedding,True)
             return sim
 
+    if use_proto_gan:
+        proto_discriminator=Discriminator(64,3,height,1)
 
+        ckpt = torch.load(pretrained_proto_gan)
+        proto_discriminator.load_state_dict(ckpt['d'])
+
+        proto_discriminator=proto_discriminator.to(accelerator.device)
+        
+        def get_proto_gan_score(image:Image.Image):
+            tensor_img=composed_trans(image).unsqueeze(0).to(accelerator.device)
+            pred, _, _,_, = proto_discriminator(tensor_img,"fake")
+            return pred.mean().detach().cpu().numpy()
     
 
     max_train_steps=samples_per_epoch*num_epochs
