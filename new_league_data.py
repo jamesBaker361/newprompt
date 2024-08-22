@@ -191,4 +191,6 @@ for link in links:
                                             Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
                                             load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
                                         if limit<=0:
+                                            Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
                                             exit()
+
