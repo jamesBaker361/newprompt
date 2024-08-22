@@ -60,7 +60,8 @@ from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPip
 from openpose_better import OpenPoseDetectorProbs
 import torchvision
 import cv2
-from experiment_helpers.background import remove_background
+from experiment_helpers.background import remove_background,remove_background_birefnet
+from transformers import AutoModelForImageSegmentation
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -183,7 +184,8 @@ def evaluate_one_sample(
     method_name=method_name.strip()
     src_image=center_crop_to_min_dimension_and_resize(src_image)
     if remove_background_flag:
-        removed_src=remove_background(src_image)
+        birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
+        removed_src=remove_background_birefnet(src_image,birefnet)
     else:
         removed_src=src_image
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -334,7 +336,7 @@ def evaluate_one_sample(
 
             removed_images=images
             if remove_background_flag:
-                removed_images=[remove_background(image) for image in images]
+                removed_images=[remove_background_birefnet(image,birefnet) for image in images]
 
             if use_vit_content or use_vit_style or use_vit_distance:
                 vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
