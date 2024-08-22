@@ -15,9 +15,38 @@ import torch
 from experiment_helpers.measuring import get_face_caption,get_fashion_caption
 from experiment_helpers.elastic_face_iresnet import MTCNN
 from experiment_helpers.clothing import get_segmentation_model
+from experiment_helpers.background import remove_background_birefnet
 import os
 import time
 from gpu import print_details
+# Option 1: use with transformers
+
+from transformers import AutoModelForImageSegmentation
+birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True)
+
+
+def extract_squares(image):
+    # Ensure the image is rectangular
+    width, height = image.size
+    if width == height:
+        raise ValueError("The image is already square.")
+    if height > width:
+        raise ValueError("The image should be wider than it is tall.")
+
+    # Determine the size of the square to extract
+    square_size = height  # Since we're extracting squares, we use the height
+
+    # Crop the center square
+    center_x = (width - square_size) // 2
+    center_square = image.crop((center_x, 0, center_x + square_size, square_size))
+
+    # Crop the leftmost square
+    left_square = image.crop((0, 0, square_size, square_size))
+
+    # Crop the rightmost square
+    right_square = image.crop((width - square_size, 0, width, square_size))
+
+    return left_square, center_square, right_square
 
 print_details()
 
@@ -55,6 +84,7 @@ blip_conditional_gen = Blip2ForConditionalGeneration.from_pretrained("Salesforce
 
 segmentation_model=get_segmentation_model(device,torch.float32)
 mtcnn=MTCNN(device=device)
+birefnet=birefnet.to(device)
 
 src_dict={
     "label":[],
@@ -72,6 +102,7 @@ cursed_labels=[
     "ezreal06",
     "braum33"
 ]
+cursed_labels=[]
 for link in links:
     #print(link)
     href=None
@@ -81,17 +112,21 @@ for link in links:
         title=link.get('title')
     except:
         pass
-    if href!=None and title !=None and title+"/"==href and title not in ["cassiopeia","drmundo"]:  # Add other extensions if needed
+    if href!=None and title !=None and title+"/"==href and title not in []:  # Add other extensions if needed
         
         #skins/skin30/images/aatrox_splash_uncentered_30.jpg
         for num in range(99):
             #print(title,num)
-            formatted_num=str(num)
-            if num<10:
-                formatted_num="0"+formatted_num
+            if num==0:
+                formatted_num="base"
+            else:
+                if num<10:
+                    formatted_num="skin0"+str(num)
+                else:
+                    formatted_num="skin"+str(num)
             label=title+formatted_num
             if label not in cursed_labels:
-                file_url = base_url + href +f"skins/skin{formatted_num}/images/{title}_splash_uncentered_{num}.jpg"
+                file_url = base_url + href +f"skins/{formatted_num}/images/{title}_splash_uncentered_{num}.jpg"
                 file_name = os.path.join("lol_characters", title+f"_{num}.jpg")
                 head_response = requests.head(file_url)
                 if head_response.status_code == 200:
@@ -111,35 +146,31 @@ for link in links:
 
                     
                     # Open the image with Pillow and save it
-                    with Image.open(img_data) as img:
-                        width, height = img.size
-                        square_size = min(width, height)
-                        left = (width - square_size) / 2
-                        top = (height - square_size) / 2
-                        right = (width + square_size) / 2
-                        bottom = (height + square_size) / 2
-                        img = img.crop((left, top, right, bottom))
-                        boxes,probs=mtcnn.detect(img)
-                        if boxes is not None and  probs[0]>=0.99:
-                            array_img=np.array(img, dtype=np.uint8)
-                            array_img = HWC3(array_img)
-                            array_img = resize_image(array_img, 512)
-                            H, W, C = array_img.shape
+                    with Image.open(img_data) as rectangular_img:
+                        img_list=extract_squares(rectangular_img)
+                        for x,img in enumerate(img_list):
+                            boxes,probs=mtcnn.detect(img)
+                            if boxes is not None and  probs[0]>=0.99:
+                                array_img=np.array(img, dtype=np.uint8)
+                                array_img = HWC3(array_img)
+                                array_img = resize_image(array_img, 512)
+                                H, W, C = array_img.shape
 
-                            subject=get_caption(img,blip_processor,blip_conditional_gen)
+                                #subject=get_caption(img,blip_processor,blip_conditional_gen)
 
-                            proportion_poses = detector.detect_poses(array_img)
-                            if len(proportion_poses)==1:
-                                src_dict["label"].append(label)
-                                src_dict["splash"].append(img)
-                                src_dict["subject"].append("character")
-                                #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
-                                #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
-                                #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
-                                #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
-                                limit-=1
-                                if limit %10==0:
-                                    Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_max")
-                                    load_dataset("jlbaker361/new_league_data_max")
-                                if limit<=0:
-                                    exit()
+                                proportion_poses = detector.detect_poses(array_img)
+                                if len(proportion_poses)==1:
+                                    img=remove_background_birefnet(img,birefnet)
+                                    src_dict["label"].append(label+f"_{x}")
+                                    src_dict["splash"].append(img)
+                                    src_dict["subject"].append("character")
+                                    #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
+                                    #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
+                                    #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
+                                    #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
+                                    limit-=1
+                                    if limit %10==0:
+                                        Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_plus_noback")
+                                        load_dataset("jlbaker361/new_league_data_solo_plus_noback")
+                                    if limit<=0:
+                                        exit()
