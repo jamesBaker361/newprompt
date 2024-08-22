@@ -131,7 +131,7 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs","swin"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs","swin","proto_gan"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
@@ -160,6 +160,7 @@ parser.add_argument("--use_fashion_clip_segmented",action="store_true")
 parser.add_argument("--multi_rewards",nargs="*")
 parser.add_argument("--remove_background",action="store_true")
 parser.add_argument("--pretrained_swin",type=str,default="/scratch/jlb638/swin_checkpoints/10000_8_512/model_2240.pt")
+parser.add_argument("--pretrained_proto_gan",type=str, default="/scratch/jlb638/10000_proto_32/all_2000.pth")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
