@@ -75,7 +75,7 @@ def cos_sim_rescaled(vector_i,vector_j,return_np=False):
     except TypeError:
         result= cos(torch.tensor(vector_i),torch.tensor(vector_j)) *0.5 +0.5
     if return_np:
-        return result.cpu().numpy()
+        return result.detach().cpu().numpy()
     return result
 
 def center_crop_to_min_dimension_and_resize(image:Image)->Image:
@@ -270,14 +270,14 @@ def evaluate_one_sample(
         swin_trans = transforms.Compose(transform_list)
         src_swin_tensor=swin_trans(removed_src).unsqueeze(0).to(accelerator.device)
         src_swin_embedding,_=swin_model.forward_encoder(src_swin_tensor)
+        src_swin_embedding=torch.flatten(src_swin_embedding)
 
-        def get_swin_mse(image:Image.Image):
+        def get_swin_similarity(image:Image.Image):
             tensor_img=swin_trans(image).unsqueeze(0).to(accelerator.device)
             swin_embedding,_=swin_model.forward_encoder(tensor_img)
-
-            loss=F.mse_loss(swin_embedding,src_swin_embedding, reduction="mean")
-            torch.cuda.empty_cache()
-            return loss.detach().cpu().numpy()
+            swin_embedding=torch.flatten(swin_embedding)
+            sim=cos_sim_rescaled(swin_embedding,src_swin_embedding,True)
+            return sim
 
 
     
@@ -364,7 +364,7 @@ def evaluate_one_sample(
             mse_distances=[0.0 for _ in images]
             fashion_similarities=[0.0 for _ in images]
             dream_similarities=[0.0 for _ in images]
-            swin_distances=[0.0 for _ in images]
+            swin_similarities=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
@@ -407,13 +407,12 @@ def evaluate_one_sample(
 
             if use_swin:
                 swin_weight=initial_swin_weight+ ((final_swin_weight-initial_swin_weight)* time_factor)
-                swin_distances=[
-                    -1.0 * get_swin_mse(image) for image in removed_images
+                swin_similarities=[
+                    swin_weight * get_swin_similarity(image) for image in removed_images
                 ]
-                swin_distances=[swin_weight * sww for sww in swin_distances]
                 try:
                     accelerator.log({
-                        "swin_distances":np.mean(swin_distances)
+                        "swin_similarity":np.mean(swin_similarities)
                     })
                 except:
                     pass
@@ -547,7 +546,7 @@ def evaluate_one_sample(
             rewards=[
                 d+f+s+vs+vc+m+fas+drm+fps+ppb+ssw for d,f,s,vs,vc,m,fas,drm,fps,ppb,ssw in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,
-                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities,pose_probabilities,swin_distances)
+                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities,pose_probabilities,swin_similarities)
             ]
             try:
                 rewards=[r.detach().cpu().numpy() for r in rewards]
