@@ -147,7 +147,7 @@ for link in links:
                 file_name = os.path.join("lol_characters", title+f"_{num}.jpg")
                 head_response = requests.head(file_url)
                 if head_response.status_code == 200:
-                    print(file_url)
+                    #print(file_url)
                     try:
                         img_response = requests.get(file_url,headers={
                             "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0"
@@ -177,6 +177,7 @@ for link in links:
 
                                 proportion_poses = detector.detect_poses(array_img)
                                 if len(proportion_poses)==1:
+                                    print(file_url)
                                     img=remove_background_birefnet(img,birefnet)
                                     if is_more_than_90_black(img)==False:
                                         src_dict["label"].append(label+f"_{x}")
@@ -188,8 +189,16 @@ for link in links:
                                         #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
                                         limit-=1
                                         if limit %10==0:
-                                            Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
-                                            load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
+                                            try:
+                                                Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
+                                                load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
+                                            except:
+                                                time.sleep(10)
+                                                try:
+                                                    Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
+                                                    load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
+                                                except:
+                                                    print("couldnt upload :(")
                                         if limit<=0:
                                             Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
                                             exit()
