@@ -114,16 +114,17 @@ def main(args):
     if args.load_from:
         pattern=re.compile(r"all_(\d+)\.pt")
         path,current_epoch=find_latest_checkpoint(args.checkpoint_dir,pattern)
-        path=os.path.join(args.checkpoint_dir,path)
-        ckpt = torch.load(path)
-        print(f"loading from {path}")
-        netG.load_state_dict(ckpt['g'])
-        netD.load_state_dict(ckpt['d'])
-        avg_param_G = ckpt['g_ema']
-        optimizerG.load_state_dict(ckpt['opt_g'])
-        optimizerD.load_state_dict(ckpt['opt_d'])
-        #current_epoch = int(args.checkpoint.split('_')[-1].split('.')[0])
-        del ckpt
+        if path is not None:
+            path=os.path.join(args.checkpoint_dir,path)
+            ckpt = torch.load(path)
+            print(f"loading from {path}")
+            netG.load_state_dict(ckpt['g'])
+            netD.load_state_dict(ckpt['d'])
+            avg_param_G = ckpt['g_ema']
+            optimizerG.load_state_dict(ckpt['opt_g'])
+            optimizerD.load_state_dict(ckpt['opt_d'])
+            #current_epoch = int(args.checkpoint.split('_')[-1].split('.')[0])
+            del ckpt
 
     data=[row["splash"] for row in load_dataset(args.hf_dataset,split="train")]
     if args.test_data:
