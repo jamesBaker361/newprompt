@@ -146,7 +146,7 @@ def main(args):
     loss_scaler = NativeScalerWithGradNormCount()
 
     # Create model
-    load_model(args=args, model_without_ddp=model_without_ddp)
+    #load_model(args=args, model_without_ddp=model_without_ddp)
     model.train(True)
 
     # Start the training process
