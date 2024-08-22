@@ -653,8 +653,8 @@ def evaluate_one_sample(
                  controlnet_conditioning_scale=0.8,
                  num_inference_steps=num_inference_steps,
                 neg_prompt=NEGATIVE,
-                height=512,
-                width=512,).images[0] for evaluation_prompt in evaluation_prompt_list
+                height=height,
+                width=width,).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==IP_ADAPTER or method_name==FACE_IP_ADAPTER:
         pipeline=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5",safety_checker=None)
@@ -685,6 +685,8 @@ def evaluate_one_sample(
             pipeline(evaluation_prompt.format(subject),
                     num_inference_steps=num_inference_steps,
                     negative_prompt=NEGATIVE,
+                    width=width,
+                    height=height,
                     safety_checker=None,
                     ip_adapter_image=src_image).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
@@ -860,6 +862,8 @@ def evaluate_one_sample(
             pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
                     num_inference_steps=num_inference_steps,
                     negative_prompt=NEGATIVE,
+                    width=width,
+                    height=height,
                     safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
         save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
