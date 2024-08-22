@@ -258,7 +258,7 @@ def evaluate_one_sample(
                                           norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
                                           window_size=8)
         state_dict=torch.load(pretrained_swin)
-        swin_model.load(state_dict)
+        swin_model.load_state_dict(state_dict)
         swin_model=model.to(accelerator.device)
 
         transform_list = [
