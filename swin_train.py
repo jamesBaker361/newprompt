@@ -151,7 +151,7 @@ def main(args):
 
     # Start the training process
     print(f"Start training for {args.epochs} epochs")
-    for e in range(args.start_epoch,args.epochs):
+    for e in range(args.start_epoch,args.epochs+1):
         loss_list=[]
         start_time=time.time()
         for data_iter_step,batch in enumerate(batched_data):
@@ -201,7 +201,7 @@ def main(args):
                 accelerator.log({
                     f"fake_{index}":wandb.Image(path)
                 })'''
-        if e%args.save_interval==0:
+        if e%args.save_interval==0 or e==args.epochs:
             torch.save(model.state_dict(),f"{args.checkpoint_dir}model_{e}.pt")
             api.upload_folder(repo_id=args.repo_id,
                               repo_type="model",
