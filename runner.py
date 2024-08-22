@@ -347,7 +347,11 @@ def main(args):
                                                                  args.use_swin,
                                                                 args.initial_swin_weight,
                                                                 args.final_swin_weight,
-                                                                args.pretrained_swin
+                                                                args.pretrained_swin,
+                                                                args.use_proto_gan,
+                                                                args.initial_proto_gan_weight,
+                                                                args.final_proto_gan_weight,
+                                                                args.pretrained_proto_gan
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
