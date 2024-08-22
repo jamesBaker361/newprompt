@@ -125,12 +125,12 @@ def main(args):
     if args.load_saved:
         pattern= re.compile(r"model_(\d+)\.pt")
         path,current_epoch=find_latest_checkpoint(args.checkpoint_dir,pattern)
-        
-        args.start_epoch=current_epoch
-        path=os.path.join(args.checkpoint_dir,path)
-        print(f"loadinf from {path}")
-        state_dict=torch.load(path)
-        model.load_state_dict(state_dict)
+        if path is not None:
+            args.start_epoch=current_epoch
+            path=os.path.join(args.checkpoint_dir,path)
+            print(f"loadinf from {path}")
+            state_dict=torch.load(path)
+            model.load_state_dict(state_dict)
     model.to(device)
     model_without_ddp = model
 
