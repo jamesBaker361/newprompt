@@ -21,6 +21,8 @@ import wandb
 from huggingface_hub import HfApi
 api = HfApi()
 from PIL import Image,UnidentifiedImageError
+from experiment_helpers.checkpoint import find_latest_checkpoint
+import re
 
 parser=argparse.ArgumentParser()
 
@@ -35,12 +37,13 @@ parser.add_argument("--batch_size",type=int,default=8)
 parser.add_argument("--nlr",type=float,default=0.0002)
 parser.add_argument("--nbeta1",type=float,default=0.5)
 parser.add_argument("--checkpoint",type=str, default="None")
-parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_max")
+parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_max_plus")
 parser.add_argument("--save_interval",type=int,default=1000)
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/proto_images/")
 parser.add_argument("--checkpoint_dir",type=str,default="/scratch/jlb638/proto_checkpoints/")
 parser.add_argument("--repo_id",type=str,default="jlbaker361/proto-gan-512")
 parser.add_argument("--test_data",action="store_true")
+parser.add_argument("--load_from",action="store_true")
 
 def crop_image_by_part(image, part):
     hw = image.shape[2]//2
@@ -108,14 +111,18 @@ def main(args):
     optimizerG = optim.Adam(netG.parameters(), lr=args.nlr, betas=(args.nbeta1, 0.999))
     optimizerD = optim.Adam(netD.parameters(), lr=args.nlr, betas=(args.nbeta1, 0.999))
     current_epoch=0
-    if args.checkpoint != 'None':
-        ckpt = torch.load(args.checkpoint)
+    if args.load_from:
+        pattern=re.compile(r"all_(\d+)\.pt")
+        path,current_epoch=find_latest_checkpoint(args.checkpoint_dir,pattern)
+        path=os.path.join(args.checkpoint_dir,path)
+        ckpt = torch.load(path)
+        print(f"loading from {path}")
         netG.load_state_dict(ckpt['g'])
         netD.load_state_dict(ckpt['d'])
         avg_param_G = ckpt['g_ema']
         optimizerG.load_state_dict(ckpt['opt_g'])
         optimizerD.load_state_dict(ckpt['opt_d'])
-        current_epoch = int(args.checkpoint.split('_')[-1].split('.')[0])
+        #current_epoch = int(args.checkpoint.split('_')[-1].split('.')[0])
         del ckpt
 
     data=[row["splash"] for row in load_dataset(args.hf_dataset,split="train")]
