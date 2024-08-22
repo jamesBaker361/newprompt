@@ -259,7 +259,7 @@ def evaluate_one_sample(
                                           window_size=8)
         state_dict=torch.load(pretrained_swin)
         swin_model.load_state_dict(state_dict)
-        swin_model=model.to(accelerator.device)
+        swin_model=swin_model.to(accelerator.device)
 
         transform_list = [
             transforms.Resize((width,height)),
