@@ -383,6 +383,7 @@ def evaluate_one_sample(
             fashion_similarities=[0.0 for _ in images]
             dream_similarities=[0.0 for _ in images]
             swin_similarities=[0.0 for _ in images]
+            proto_gan_scores=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
@@ -446,6 +447,17 @@ def evaluate_one_sample(
                 try:
                     accelerator.log({
                         "style_distance":np.mean(style_similarities)
+                    })
+                except:
+                    pass
+
+            if use_proto_gan:
+                proto_gan_weight=initial_proto_gan_weight+((final_proto_gan_weight-initial_proto_gan_weight)*time_factor)
+                proto_gan_scores=[
+                    proto_gan_weight * get_proto_gan_score(image) for image in removed_images]
+                try:
+                    accelerator.log({
+                        "proto_gan_score":np.mean(proto_gan_scores)
                     })
                 except:
                     pass
@@ -562,9 +574,10 @@ def evaluate_one_sample(
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas+drm+fps+ppb+ssw for d,f,s,vs,vc,m,fas,drm,fps,ppb,ssw in zip(vit_similarities,face_similarities,
+                d+f+s+vs+vc+m+fas+drm+fps+ppb+ssw+pgs for d,f,s,vs,vc,m,fas,drm,fps,ppb,ssw,pgs in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,
-                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities,pose_probabilities,swin_similarities)
+                                                       mse_distances,fashion_similarities,dream_similarities,face_probabilities
+                                                       ,pose_probabilities,swin_similarities,proto_gan_scores)
             ]
             try:
                 rewards=[r.detach().cpu().numpy() for r in rewards]
