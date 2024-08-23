@@ -161,6 +161,7 @@ parser.add_argument("--multi_rewards",nargs="*")
 parser.add_argument("--remove_background",action="store_true")
 parser.add_argument("--pretrained_swin",type=str,default="/scratch/jlb638/swin_checkpoints/10000_8_512/model_2240.pt")
 parser.add_argument("--pretrained_proto_gan",type=str, default="/scratch/jlb638/10000_proto_32/all_2000.pth")
+parser.add_argument("--image_size",type=int,default=512)
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -251,7 +252,7 @@ def main(args):
             break
         subject=row[args.subject_key]
         label=row[args.label_key]
-        src_image=row[args.image_key]
+        src_image=row[args.image_key].resize((args.image_size,args.image_size))
         if args.use_default_text:
             subject=args.default_text.replace("_"," ")
         args.image_dir=f"{args.image_dir}/{label}/{args.start}/{args.method_name}"
