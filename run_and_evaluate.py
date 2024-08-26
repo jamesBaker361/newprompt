@@ -36,10 +36,6 @@ from text_embedding_helpers import prepare_textual_inversion
 from trl import DDPOConfig
 from pareto import get_dominant_list
 import random
-from dpok_pipeline import DPOKPipeline
-from dpok_scheduler import DPOKDDIMScheduler
-from dpok_reward import ValueMulti
-from dpok_helpers import _get_batch, _collect_rollout,  _trim_buffer,_train_value_func,TrainPolicyFuncData, _train_policy_func
 from facenet_pytorch import MTCNN, InceptionResnetV1,extract_face
 from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresnet_model,rescale_around_zero,face_mask
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
