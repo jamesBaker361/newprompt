@@ -190,7 +190,7 @@ def evaluate_one_sample(
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
-    src_image=center_crop_to_min_dimension_and_resize(src_image)
+    #src_image=center_crop_to_min_dimension_and_resize(src_image)
     if remove_background_flag:
         birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
         removed_src=remove_background_birefnet(src_image,birefnet)
@@ -252,6 +252,7 @@ def evaluate_one_sample(
     #vit_model=accelerator.prepare(vit_model)
 
     width,height=src_image.size
+    print("width,height",src_image.size)
     
     transform_list = [
             transforms.Resize((width,height)),
@@ -271,7 +272,18 @@ def evaluate_one_sample(
                                           norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
                                           window_size=8)
         state_dict=torch.load(pretrained_swin)
-        swin_model.load_state_dict(state_dict)
+        try:
+            swin_model.load_state_dict(state_dict)
+        except RuntimeError: #we might have had to use the smaller patches
+            swin_model = SwinMAE(norm_pix_loss=False, 
+                                          mask_ratio=0.75,
+                                          embed_dim=64,
+                                          decoder_embed_dim=512,
+                                          img_size=width,
+                                          patch_size=2,
+                                          norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
+                                          window_size=8)
+            swin_model.load_state_dict(state_dict)
         swin_model=swin_model.to(accelerator.device)
 
        
@@ -370,7 +382,7 @@ def evaluate_one_sample(
     def get_reward_fn():
         
         def _reward_fn(images, prompts, epoch,):
-            #print(images)
+            print(images[0].size)
             vit_similarities=[0.0 for _ in images]
             face_similarities=[0.0 for _ in images]
             face_probabilities=[0.0 for _ in images]
