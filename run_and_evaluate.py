@@ -1,6 +1,5 @@
 import sys
 sys.path += ['.']
-import sys
 sys.path.append("/home/jlb638/Desktop/prompt")
 import os
 cache_dir="/scratch/jlb638/trans_cache"
