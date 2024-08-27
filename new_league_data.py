@@ -76,6 +76,38 @@ if torch.cuda.is_available():
     device="cuda"
 
 
+def count_black_pixels(image):
+    # Convert image to grayscale (to simplify comparison)
+    grayscale = image.convert('L')
+    
+    # Load pixel data
+    pixels = grayscale.load()
+    
+    # Get image dimensions
+    width, height = grayscale.size
+    
+    black_pixel_count = 0
+    # Count black pixels
+    for x in range(width):
+        for y in range(height):
+            # In grayscale, black pixels have value 0
+            if pixels[x, y] == 0:
+                black_pixel_count += 1
+    
+    return black_pixel_count
+
+def find_fewest_black_pixels(images):
+    min_black_pixels = float('inf')
+    index_of_fewest_black_pixels = -1
+    
+    for idx, image in enumerate(images):
+        black_pixel_count = count_black_pixels(image)
+        if black_pixel_count < min_black_pixels:
+            min_black_pixels = black_pixel_count
+            index_of_fewest_black_pixels = idx
+            
+    return index_of_fewest_black_pixels
+
 
 blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 blip_conditional_gen = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b").eval()
@@ -112,7 +144,7 @@ src_dict={
     #"fashion_caption":[],
 }
 
-hf_dataset="jlbaker361/new_league_data_solo_90_plus_noback"
+hf_dataset="jlbaker361/new_league_data_solo_90_best_noback"
 
 cursed_labels=[
     "annie08",
@@ -167,41 +199,43 @@ for link in links:
                     # Open the image with Pillow and save it
                     with Image.open(img_data) as rectangular_img:
                         img_list=extract_squares(rectangular_img)
-                        for x,img in enumerate(img_list):
-                            boxes,probs=mtcnn.detect(img)
-                            if boxes is not None and  probs[0]>=0.99:
-                                array_img=np.array(img, dtype=np.uint8)
-                                array_img = HWC3(array_img)
-                                array_img = resize_image(array_img, 512)
-                                H, W, C = array_img.shape
+                        img_list=[remove_background_birefnet(img,birefnet) for img in img_list]
+                        index=find_fewest_black_pixels(img_list)
+                        img=img_list[index]
+                        boxes,probs=mtcnn.detect(img)
+                        if boxes is not None and  probs[0]>=0.99:
+                            array_img=np.array(img, dtype=np.uint8)
+                            array_img = HWC3(array_img)
+                            array_img = resize_image(array_img, 512)
+                            H, W, C = array_img.shape
 
-                                #subject=get_caption(img,blip_processor,blip_conditional_gen)
+                            #subject=get_caption(img,blip_processor,blip_conditional_gen)
 
-                                proportion_poses = detector.detect_poses(array_img)
-                                if len(proportion_poses)==1:
-                                    print(file_url)
-                                    img=remove_background_birefnet(img,birefnet)
-                                    if is_more_than_90_black(img)==False:
-                                        src_dict["label"].append(label+f"_{x}")
-                                        src_dict["splash"].append(img)
-                                        src_dict["subject"].append("character")
-                                        #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
-                                        #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
-                                        #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
-                                        #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
-                                        limit-=1
-                                        if limit %10==0:
+                            proportion_poses = detector.detect_poses(array_img)
+                            if len(proportion_poses)==1:
+                                print(file_url)
+                                #img=remove_background_birefnet(img,birefnet)
+                                if is_more_than_90_black(img)==False:
+                                    src_dict["label"].append(label+f"")
+                                    src_dict["splash"].append(img)
+                                    src_dict["subject"].append("character")
+                                    #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
+                                    #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
+                                    #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
+                                    #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
+                                    limit-=1
+                                    if limit %10==0:
+                                        try:
+                                            Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
+                                            load_dataset(hf_dataset)
+                                        except:
+                                            time.sleep(10)
                                             try:
                                                 Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
                                                 load_dataset(hf_dataset)
                                             except:
-                                                time.sleep(10)
-                                                try:
-                                                    Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
-                                                    load_dataset(hf_dataset)
-                                                except:
-                                                    print("couldnt upload :(")
-                                        if limit<=0:
-                                            Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
-                                            exit()
+                                                print("couldnt upload :(")
+                                    if limit<=0:
+                                        Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
+                                        exit()
 
