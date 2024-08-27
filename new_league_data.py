@@ -144,7 +144,7 @@ src_dict={
     #"fashion_caption":[],
 }
 
-hf_dataset="jlbaker361/new_league_data_solo_90_best_noback"
+hf_dataset="jlbaker361/new_league_data_best"
 
 cursed_labels=[
     "annie08",
@@ -199,8 +199,10 @@ for link in links:
                     # Open the image with Pillow and save it
                     with Image.open(img_data) as rectangular_img:
                         img_list=extract_squares(rectangular_img)
-                        img_list=[remove_background_birefnet(img,birefnet) for img in img_list]
-                        index=find_fewest_black_pixels(img_list)
+                        n_valid=0
+                        #for x,img in enumerate(img_list):
+                        back_img_list=[remove_background_birefnet(img,birefnet) for img in img_list]
+                        index=find_fewest_black_pixels(back_img_list)
                         img=img_list[index]
                         boxes,probs=mtcnn.detect(img)
                         if boxes is not None and  probs[0]>=0.99:
@@ -213,29 +215,30 @@ for link in links:
 
                             proportion_poses = detector.detect_poses(array_img)
                             if len(proportion_poses)==1:
-                                print(file_url)
-                                #img=remove_background_birefnet(img,birefnet)
-                                if is_more_than_90_black(img)==False:
-                                    src_dict["label"].append(label+f"")
-                                    src_dict["splash"].append(img)
-                                    src_dict["subject"].append("character")
-                                    #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
-                                    #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
-                                    #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
-                                    #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
-                                    limit-=1
-                                    if limit %10==0:
-                                        try:
-                                            Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
-                                            load_dataset(hf_dataset)
-                                        except:
-                                            time.sleep(10)
-                                            try:
-                                                Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
-                                                load_dataset(hf_dataset)
-                                            except:
-                                                print("couldnt upload :(")
-                                    if limit<=0:
+                                n_valid+=1
+                        #for x,img in enumerate(img_list):
+                            #img=remove_background_birefnet(img,birefnet)
+                            #if is_more_than_90_black(img)==False:
+                            src_dict["label"].append(label)
+                            src_dict["splash"].append(img)
+                            src_dict["subject"].append("character")
+                            #src_dict['blip_caption'].append(get_caption(img,blip_processor,blip_conditional_gen).replace("stock photo","").replace("stock image",""))
+                            #src_dict["subject"].append(remove_numbers(os.path.splitext(filename)[0]))
+                            #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
+                            #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
+                            limit-=1
+                            if limit %10==0:
+                                try:
+                                    Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
+                                    load_dataset(hf_dataset)
+                                except:
+                                    time.sleep(10)
+                                    try:
                                         Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
-                                        exit()
+                                        load_dataset(hf_dataset)
+                                    except:
+                                        print("couldnt upload :(")
+                            if limit<=0:
+                                Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
+                                exit()
 
