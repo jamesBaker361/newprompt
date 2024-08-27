@@ -112,6 +112,8 @@ src_dict={
     #"fashion_caption":[],
 }
 
+hf_dataset="jlbaker361/new_league_data_solo_90_plus_noback"
+
 cursed_labels=[
     "annie08",
     "garen04",
@@ -190,16 +192,16 @@ for link in links:
                                         limit-=1
                                         if limit %10==0:
                                             try:
-                                                Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
-                                                load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
+                                                Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
+                                                load_dataset(hf_dataset)
                                             except:
                                                 time.sleep(10)
                                                 try:
-                                                    Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
-                                                    load_dataset("jlbaker361/new_league_data_solo_90_plus_noback")
+                                                    Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
+                                                    load_dataset(hf_dataset)
                                                 except:
                                                     print("couldnt upload :(")
                                         if limit<=0:
-                                            Dataset.from_dict(src_dict).push_to_hub("jlbaker361/new_league_data_solo_90_plus_noback")
+                                            Dataset.from_dict(src_dict).push_to_hub(hf_dataset)
                                             exit()
 
