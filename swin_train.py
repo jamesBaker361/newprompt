@@ -156,30 +156,39 @@ def generate_random_crops(image, n):
     
     return crops
 
-def sample_subsets(elements, k):
-    remaining_elements = elements.copy()  # Make a copy of the original set
+def sample_subsets(tensor_list, k):
+    remaining_elements = tensor_list.copy()  # Make a copy of the original tensor list
     sampled_elements = []  # Track previously sampled elements
     subsets = []  # List to store the sampled subsets
-    
-    while len(remaining_elements) >= k or sampled_elements:
+
+    while len(remaining_elements) >= k:
+        print(k)
         # If less than k elements remain, refill the pool
         if len(remaining_elements) < k:
             remaining_elements.extend(sampled_elements)
             sampled_elements.clear()
-        
-        # Sample a subset of length k
-        subset = random.sample(remaining_elements, k)
-        
-        # Remove the sampled elements from the remaining pool
-        for element in subset:
-            remaining_elements.remove(element)
-        
+
+        # Randomly sample k tensors from the remaining elements
+        subset_indices = random.sample(range(len(remaining_elements)), k)
+        subset = [remaining_elements[i] for i in subset_indices]
+
+        # Remove the sampled tensors from the remaining pool
+        for index in sorted(subset_indices, reverse=True):
+            del remaining_elements[index]
+
         # Add the subset to the list of subsets
         subsets.append(subset)
-        
+
         # Keep track of the sampled elements
         sampled_elements.extend(subset)
-    
+
+    if len(remaining_elements)>0:
+        extras=k-len(remaining_elements)
+        subset_indices = random.sample(range(len(sampled_elements)), extras)
+        subset = [sampled_elements[i] for i in subset_indices]
+        subset.extend(remaining_elements)
+        
+
     return subsets
 
 def main(args):
