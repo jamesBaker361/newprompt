@@ -105,7 +105,7 @@ birefnet=birefnet.to(device)
 
 src_dataset=load_dataset("jschoormans/humanpose_densepose",split="train")
 
-limit=5000
+limit=1000
 src_dict={
     "label":[],
     "splash":[],
@@ -135,7 +135,7 @@ for i,row in enumerate(src_dataset):
                 #src_dict["face_caption"].append(get_face_caption(img,blip_processor,blip_conditional_gen,mtcnn,10))
                 #src_dict["fashion_caption"].append(get_fashion_caption(img,blip_processor,blip_conditional_gen,segmentation_model,0))
                 limit-=1
-                if limit %10==0:
+                if limit %50==0:
                     try:
                         Dataset.from_dict(src_dict).push_to_hub(hf_path)
                     except:
