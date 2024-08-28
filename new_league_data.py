@@ -144,7 +144,7 @@ src_dict={
     #"fashion_caption":[],
 }
 
-hf_dataset="jlbaker361/new_league_data_best"
+hf_dataset="jlbaker361/new_league_data_bestest"
 
 cursed_labels=[
     "annie08",
@@ -201,7 +201,7 @@ for link in links:
                         img_list=extract_squares(rectangular_img)
                         n_valid=0
                         #for x,img in enumerate(img_list):
-                        back_img_list=[remove_background_birefnet(img,birefnet) for img in img_list]
+                        back_img_list=[remove_background_birefnet(img.copy(),birefnet) for img in img_list]
                         index=find_fewest_black_pixels(back_img_list)
                         img=img_list[index]
                         boxes,probs=mtcnn.detect(img)
