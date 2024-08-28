@@ -162,7 +162,6 @@ def sample_subsets(tensor_list, k):
     subsets = []  # List to store the sampled subsets
 
     while len(remaining_elements) >= k:
-        print(k)
         # If less than k elements remain, refill the pool
         if len(remaining_elements) < k:
             remaining_elements.extend(sampled_elements)
