@@ -20,6 +20,7 @@ from huggingface_hub import HfApi
 from experiment_helpers.checkpoint import find_latest_checkpoint
 import re
 api = HfApi()
+import random
 
 parser=argparse.ArgumentParser()
 
@@ -79,8 +80,107 @@ parser.add_argument("--checkpoint_dir",type=str,default="/scratch/jlb638/swin_ch
 parser.add_argument("--repo_id",type=str,default="jlbaker361/swin-512")
 parser.add_argument("--test_data",action="store_true")
 parser.add_argument("--load_saved",action="store_true")
+parser.add_argument("--train_contrastive",action="store_true")
+parser.add_argument("--contrastive_weight",type=float,default=0.1)
+parser.add_argument("--contrastive_cluster_size",type=int,default=4)
+parser.add_argument("--contrastive_n_clusters",type=int,default=4)
+parser.add_argument("--contrastive_steps_per_epoch",type=int,default=16)
+parser.add_argument("--contrastive_margin",type=float,default=2.0)
 
+class ContrastiveLossNormalized(nn.Module):
+    def __init__(self, margin):
+        super(ContrastiveLossNormalized, self).__init__()
+        self.margin = margin
+    
+    def forward(self, output1, output2, label):
+        # Normalize embeddings across all dimensions (batch-wise normalization)
+        all_outputs = torch.cat((output1, output2), dim=0)
+        mean = all_outputs.mean()
+        std = all_outputs.std()
+        
+        # Normalize using batch statistics
+        output1 = (output1 - mean) / (std + 1e-8)
+        output2 = (output2 - mean) / (std + 1e-8)
+        
+        # Compute Euclidean distance between normalized embeddings
+        euclidean_distance = torch.norm(output1 - output2, dim=1)
+        
+        # Contrastive Loss calculation
+        loss_similar = label * torch.pow(euclidean_distance, 2)
+        loss_dissimilar = (1 - label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
+        
+        # Return the mean loss over the batch
+        loss = torch.mean(loss_similar + loss_dissimilar)
+        return loss
+    
 
+# Contrastive Loss Function
+class ContrastiveLoss(nn.Module):
+    def __init__(self, margin):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+    
+    def forward(self, output1, output2, label):
+        # Calculate the Euclidean distance between embeddings
+        euclidean_distance = nn.functional.pairwise_distance(output1, output2)
+        
+        # Loss for similar pairs
+        loss_similar = label * torch.pow(euclidean_distance, 2)
+        # Loss for dissimilar pairs
+        loss_dissimilar = (1 - label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
+        
+        # Final loss is the sum of both
+        loss = torch.mean(loss_similar + loss_dissimilar)
+        return loss
+
+def generate_random_crops(image, n):
+    width, height = image.size
+    crop_width = int(0.8 * width)
+    crop_height = int(0.8 * height)
+    
+    crops = []
+    
+    for _ in range(n):
+        # Randomly choose the top-left corner of the crop
+        left = random.randint(0, width - crop_width)
+        top = random.randint(0, height - crop_height)
+        
+        # Define the box for cropping (left, upper, right, lower)
+        crop_box = (left, top, left + crop_width, top + crop_height)
+        
+        # Crop the image
+        crop = image.crop(crop_box).resize((image.size))
+        
+        # Add the crop to the list of crops
+        crops.append(crop)
+    
+    return crops
+
+def sample_subsets(elements, k):
+    remaining_elements = elements.copy()  # Make a copy of the original set
+    sampled_elements = []  # Track previously sampled elements
+    subsets = []  # List to store the sampled subsets
+    
+    while len(remaining_elements) >= k or sampled_elements:
+        # If less than k elements remain, refill the pool
+        if len(remaining_elements) < k:
+            remaining_elements.extend(sampled_elements)
+            sampled_elements.clear()
+        
+        # Sample a subset of length k
+        subset = random.sample(remaining_elements, k)
+        
+        # Remove the sampled elements from the remaining pool
+        for element in subset:
+            remaining_elements.remove(element)
+        
+        # Add the subset to the list of subsets
+        subsets.append(subset)
+        
+        # Keep track of the sampled elements
+        sampled_elements.extend(subset)
+    
+    return subsets
 
 def main(args):
     api.create_repo(args.repo_id,exist_ok=True)
@@ -109,6 +209,20 @@ def main(args):
     for j in range(0,len(data),args.batch_size):
         batched_data.append(data[j:j+args.batch_size])
     batched_data=[torch.stack(batch) for batch in batched_data]
+
+    if args.train_contrastive:
+        contrastive_loss_module=ContrastiveLoss(args.contrastive_margin)
+        contrastive_data=[row["splash"] for row in load_dataset(args.hf_dataset,split="train")]
+        if args.test_data:
+            contrastive_data=[Image.open("boot.jpg") for _ in range(32)]
+        contrastive_batches=[]
+        for image in contrastive_data:
+            random_crops=generate_random_crops(image,args.contrastive_cluster_size)
+            random_crops=[trans(crop) for crop in random_crops]
+            contrastive_batches.append(random_crops)
+        contrastive_batches=[torch.stack(batch) for batch in contrastive_batches]
+        
+
 
     
 
@@ -173,6 +287,40 @@ def main(args):
         metrics={
             "loss":np.mean(loss_list)
         }
+        if args.train_contrastive:
+            start_time=time.time()
+            contrastive_loss_list=[]
+            subsets=sample_subsets(contrastive_batches,args.contrastive_n_clusters)
+            
+            for subset in subsets:
+                optimizer.zero_grad()
+                clusters=[]
+                contrastive_loss=0.0
+                for batch in subset:
+                    batch=batch.to(device)
+                    embeddings,_=model.forward_encoder(batch)
+                    clusters.append(embeddings)
+                    '''for i in range(len(embeddings)):
+                        for j in range(i+1,len(embeddings)):
+                            contrastive_loss+=contrastive_loss_module(embeddings[i],embeddings[j],0)'''
+                    contrastive_loss=sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],0) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
+                for i in range(len(clusters)):
+                    for j in range(i+1,len(clusters)):
+                        contrastive_loss+=contrastive_loss_module(clusters[i],clusters[j],1)
+                
+                contrastive_loss_list.append(contrastive_loss.item())
+                contrastive_loss.backward()
+                optimizer.step()
+            end_time=time.time()
+            print(f"contrastive epoch {e} elapsed {end_time-start_time} seconds")
+            metrics["contrastive_loss"]=np.mean(contrastive_loss_list)
+                        
+
+                
+
+            
+
+
         for k,v in metrics.items():
             print("\t",k,v)
         accelerator.log(metrics)
