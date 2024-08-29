@@ -274,6 +274,7 @@ def main(args):
     # Start the training process
     print(f"Start training for {args.epochs} epochs")
     for e in range(args.start_epoch,args.epochs+1):
+        contrastive_weight=args.contrastive_weight*(e/args.epochs)
         loss_list=[]
         start_time=time.time()
         for data_iter_step,batch in enumerate(batched_data):
@@ -311,7 +312,7 @@ def main(args):
                     '''for i in range(len(embeddings)):
                         for j in range(i+1,len(embeddings)):
                             contrastive_loss+=contrastive_loss_module(embeddings[i],embeddings[j],0)'''
-                    contrastive_loss=sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],0) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
+                    contrastive_loss=contrastive_weight* sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],0) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
                 for i in range(len(clusters)):
                     for j in range(i+1,len(clusters)):
                         contrastive_loss+=contrastive_loss_module(clusters[i],clusters[j],1)
