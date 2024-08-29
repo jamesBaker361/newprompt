@@ -253,6 +253,7 @@ def main(args):
         subject=row[args.subject_key]
         label=row[args.label_key]
         src_image=row[args.image_key].resize((args.image_size,args.image_size))
+        print("src_image size", src_image.size)
         if args.use_default_text:
             subject=args.default_text.replace("_"," ")
         args.image_dir=f"{args.image_dir}/{label}/{args.start}/{args.method_name}"
