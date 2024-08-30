@@ -729,7 +729,7 @@ def evaluate_one_sample(
                     safety_checker=None,
                     ip_adapter_image=src_image).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
-    elif method_name==DDPO_MULTI or DDPO or CONTROL_HACK:
+    elif method_name==DDPO_MULTI or method_name== DDPO or method_name== CONTROL_HACK:
         pipeline=BetterDefaultDDPOStableDiffusionPipeline(
             train_text_encoder,
             train_text_encoder_embeddings,
@@ -824,7 +824,7 @@ def evaluate_one_sample(
                         reward=cos_sim_rescaled(style_embedding,vit_src_style_embedding)
                     rewards.append(reward)
                 return rewards,{}
-        elif method_name==DDPO:
+        elif method_name==DDPO or method_name==CONTROL_HACK:
             def prompt_fn():
                 return entity_name,{}
 
