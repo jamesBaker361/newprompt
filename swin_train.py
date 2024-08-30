@@ -275,44 +275,33 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     for e in range(args.start_epoch,args.epochs+1):
         contrastive_weight=args.contrastive_weight*(e/args.epochs)
+        
         loss_list=[]
-        start_time=time.time()
-        for data_iter_step,batch in enumerate(batched_data):
-            optimizer.zero_grad()
-            batch=batch.to(device)
-            if data_iter_step % args.accum_iter == 0:
-                adjust_learning_rate(optimizer, data_iter_step / len(batched_data) + e, args)
-            
-            loss, _, _ = model(batch)
-            loss_value = loss.item()
-            if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
-                break
-            loss_list.append(loss_value)
-            loss.backward()
-            optimizer.step()
-        end_time=time.time()
-        print(f"epoch {e} elapsed {end_time-start_time} seconds")
-        metrics={
-            "loss":np.mean(loss_list)
-        }
         if args.train_contrastive:
             start_time=time.time()
             contrastive_loss_list=[]
             subsets=sample_subsets(contrastive_batches,args.contrastive_n_clusters)
             
             for subset in subsets:
-                optimizer.zero_grad()
+                
                 clusters=[]
                 contrastive_loss=0.0
                 for batch in subset:
+                    optimizer.zero_grad()
                     batch=batch.to(device)
-                    embeddings,_=model.forward_encoder(batch)
+                    embeddings,mask=model.forward_encoder(batch)
+                    pred=model.forward_decoder(embeddings)
+                    loss=model.forward_loss(batch,pred,mask)
+                    loss_value = loss.item()
+                    loss_list.append(loss_value)
+                    loss.backward()
+                    optimizer.step()
                     clusters.append(embeddings)
                     '''for i in range(len(embeddings)):
                         for j in range(i+1,len(embeddings)):
                             contrastive_loss+=contrastive_loss_module(embeddings[i],embeddings[j],0)'''
                     contrastive_loss=contrastive_weight* sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],0) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
+                optimizer.zero_grad()
                 for i in range(len(clusters)):
                     for j in range(i+1,len(clusters)):
                         contrastive_loss+=contrastive_loss_module(clusters[i],clusters[j],1)
@@ -322,7 +311,31 @@ def main(args):
                 optimizer.step()
             end_time=time.time()
             print(f"contrastive epoch {e} elapsed {end_time-start_time} seconds")
-            metrics["contrastive_loss"]=np.mean(contrastive_loss_list)
+            metrics={
+            "loss":np.mean(loss_list),
+            "contrastive_loss":np.mean(contrastive_loss_list)
+            }
+        else:
+            start_time=time.time()
+            for data_iter_step,batch in enumerate(batched_data):
+                optimizer.zero_grad()
+                batch=batch.to(device)
+                if data_iter_step % args.accum_iter == 0:
+                    adjust_learning_rate(optimizer, data_iter_step / len(batched_data) + e, args)
+                
+                loss, _, _ = model(batch)
+                loss_value = loss.item()
+                if not math.isfinite(loss_value):
+                    print("Loss is {}, stopping training".format(loss_value))
+                    break
+                loss_list.append(loss_value)
+                loss.backward()
+                optimizer.step()
+            end_time=time.time()
+            print(f"epoch {e} elapsed {end_time-start_time} seconds")
+            metrics={
+                "loss":np.mean(loss_list)
+            }
                         
 
                 
