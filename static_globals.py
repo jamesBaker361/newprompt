@@ -18,10 +18,11 @@ STYLE_REWARD="style_reward"
 DREAM_REWARD="dream_reward"
 DDPO_MULTI="ddpo_multi"
 FACE_PROBS="face_probs"
+CONTROL_HACK="control_hack"
 
 PLACEHOLDER="<S>"
 
-METHOD_LIST=[BLIP_DIFFUSION, ELITE, RIVAL,IP_ADAPTER,FACE_IP_ADAPTER,CHOSEN,INSTANT,DDPO,DPOK,DDPO_MULTI]
+METHOD_LIST=[BLIP_DIFFUSION, ELITE, RIVAL,IP_ADAPTER,FACE_IP_ADAPTER,CHOSEN,INSTANT,DDPO,DPOK,DDPO_MULTI,CONTROL_HACK]
 
 NEGATIVE="over-exposure, under-exposure, saturated, duplicate, out of frame, lowres, cropped, worst quality, low quality, jpeg artifacts, morbid, mutilated, out of frame, ugly, bad anatomy, bad proportions, deformed, blurry, duplicate"
 
