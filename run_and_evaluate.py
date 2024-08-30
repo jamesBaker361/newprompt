@@ -965,7 +965,7 @@ def evaluate_one_sample(
                         width=width,
                         height=height,
                         safety_checker=None).images[0]
-            evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[src_image,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
+            evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[removed_src,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
             evaluation_image_list.append(evaluation_image)
             
             
