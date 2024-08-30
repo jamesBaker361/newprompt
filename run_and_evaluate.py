@@ -32,7 +32,6 @@ from dvlab.rival.test_variation_sdv1 import make_eval_image
 from instant.infer import instant_generate_one_sample
 #from better_pipeline import BetterDefaultDDPOStableDiffusionPipeline
 #from better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
-from text_embedding_helpers import prepare_textual_inversion
 from trl import DDPOConfig
 from pareto import get_dominant_list
 import random
@@ -54,6 +53,7 @@ from huggingface_hub import hf_hub_download, snapshot_download
 from diffusers.models import ControlNetModel
 from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
 from openpose_better import OpenPoseDetectorProbs
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 import torchvision
 from torchvision import transforms
 import cv2
@@ -61,6 +61,7 @@ from experiment_helpers.background import remove_background,remove_background_bi
 from transformers import AutoModelForImageSegmentation
 from swin_mae import SwinMAE
 from proto_gan_models import Discriminator
+from controlnet_test import OpenposeDetectorResize
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -727,7 +728,7 @@ def evaluate_one_sample(
                     safety_checker=None,
                     ip_adapter_image=src_image).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
-    elif method_name==DDPO_MULTI or DDPO:
+    elif method_name==DDPO_MULTI or DDPO or CONTROL_HACK:
         pipeline=BetterDefaultDDPOStableDiffusionPipeline(
             train_text_encoder,
             train_text_encoder_embeddings,
@@ -896,15 +897,49 @@ def evaluate_one_sample(
                 entity_name+= style_key
 
         print(f"evaluation with entity_name {entity_name}")
-        evaluation_image_list=[
-            pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
-                    num_inference_steps=num_inference_steps,
-                    negative_prompt=NEGATIVE,
-                    width=width,
-                    height=height,
-                    safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
-        ]
-        save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
+
+        if method_name ==CONTROL_HACK:
+            untrained_pipeline=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+            untrained_pipeline.vae=untrained_pipeline.vae.to(accelerator.device)
+            untrained_pipeline.text_encoder=untrained_pipeline.text_encoder.to(accelerator.device)
+            untrained_pipeline.unet=untrained_pipeline.unet.to(accelerator.device)
+
+            controlnet = ControlNetModel.from_pretrained(
+            "lllyasviel/sd-controlnet-openpose"
+            )
+
+            detector=OpenposeDetectorResize.from_pretrained('lllyasviel/Annotators')
+            pipe = StableDiffusionControlNetPipeline(vae=pipeline.sd_pipeline.vae,
+                                                    tokenizer=pipeline.sd_pipeline.tokenizer,
+                                                    text_encoder=pipeline.sd_pipeline.text_encoder,
+                                                    unet=pipeline.sd_pipeline.unet,
+                                                    controlnet=controlnet,
+                                                    scheduler=pipeline.sd_pipeline.scheduler,safety_checker=None,
+                                                    feature_extractor=None,requires_safety_checker=False)
+            pipe.to(accelerator.device)
+            evaluation_image_list=[]
+            for evaluation_prompt in evaluation_prompt_list:
+                untrained_image=untrained_pipeline(evaluation_prompt,num_inference_steps=num_inference_steps,
+                        negative_prompt=NEGATIVE,
+                        width=width,
+                        height=height,
+                        safety_checker=None).images[0]
+                pose_image=detector(src_image,untrained_image)
+                evaluation_image=pipe(subject,image=pose_image,num_inference_steps=num_inference_steps).images[0]
+
+                evaluation_image_list.append(evaluation_image)
+
+                
+        else:
+            evaluation_image_list=[
+                pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
+                        num_inference_steps=num_inference_steps,
+                        negative_prompt=NEGATIVE,
+                        width=width,
+                        height=height,
+                        safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
+            ]
+            save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
         new_file=f"{entity_name}_{method_name}.txt"
         with open(new_file,"w+") as txt_file:
             txt_file.write(entity_name)
@@ -962,6 +997,7 @@ def evaluate_one_sample(
         untrained_pipeline.vae=untrained_pipeline.vae.to(accelerator.device)
         untrained_pipeline.text_encoder=untrained_pipeline.text_encoder.to(accelerator.device)
         untrained_pipeline.unet=untrained_pipeline.unet.to(accelerator.device)
+        
         
 
 
