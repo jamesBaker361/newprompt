@@ -62,6 +62,7 @@ from transformers import AutoModelForImageSegmentation
 from swin_mae import SwinMAE
 from proto_gan_models import Discriminator
 from controlnet_test import OpenposeDetectorResize
+from classifier_guidance import classifier_sample
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -925,7 +926,7 @@ def evaluate_one_sample(
                         height=height,
                         safety_checker=None).images[0]
                 pose_image=detector(src_image,untrained_image)
-                evaluation_image=pipe(subject,image=pose_image,num_inference_steps=num_inference_steps).images[0]
+                evaluation_image=pipe(evaluation_prompt.format(entity_name),image=pose_image,num_inference_steps=num_inference_steps).images[0]
 
                 evaluation_image_list.append(evaluation_image)
 
@@ -999,6 +1000,19 @@ def evaluate_one_sample(
         untrained_pipeline.unet=untrained_pipeline.unet.to(accelerator.device)
         
         
+    elif method_name==CLASSIFIER:
+        pipe=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+        evaluation_image_list=[]
+        for evaluation_prompt in evaluation_prompt_list:
+            prompt_image=pipe(evaluation_prompt,num_inference_steps=num_inference_steps,
+                        negative_prompt=NEGATIVE,
+                        width=width,
+                        height=height,
+                        safety_checker=None).images[0]
+            evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[src_image,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
+            evaluation_image_list.append(evaluation_image)
+            
+            
 
 
 
