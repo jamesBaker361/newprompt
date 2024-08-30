@@ -82,7 +82,6 @@ parser.add_argument("--test_data",action="store_true")
 parser.add_argument("--load_saved",action="store_true")
 parser.add_argument("--train_contrastive",action="store_true")
 parser.add_argument("--contrastive_weight",type=float,default=1.0)
-parser.add_argument("--contrastive_cluster_size",type=int,default=4)
 parser.add_argument("--contrastive_n_clusters",type=int,default=4)
 parser.add_argument("--contrastive_steps_per_epoch",type=int,default=16)
 parser.add_argument("--contrastive_margin",type=float,default=2.0)
@@ -225,7 +224,7 @@ def main(args):
             contrastive_data=[Image.open("boot.jpg") for _ in range(32)]
         contrastive_batches=[]
         for image in contrastive_data:
-            random_crops=generate_random_crops(image,args.contrastive_cluster_size)
+            random_crops=generate_random_crops(image,args.batch_size)
             random_crops=[trans(crop) for crop in random_crops]
             contrastive_batches.append(random_crops)
         contrastive_batches=[torch.stack(batch) for batch in contrastive_batches]
