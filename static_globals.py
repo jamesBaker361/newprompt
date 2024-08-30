@@ -19,6 +19,7 @@ DREAM_REWARD="dream_reward"
 DDPO_MULTI="ddpo_multi"
 FACE_PROBS="face_probs"
 CONTROL_HACK="control_hack"
+CLASSIFIER="classifier"
 
 PLACEHOLDER="<S>"
 
