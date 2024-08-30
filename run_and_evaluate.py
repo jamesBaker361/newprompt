@@ -953,51 +953,7 @@ def evaluate_one_sample(
         )
         del pipeline
 
-    elif method_name==CONTROL_HACK:
-        trained_pipeline=BetterDefaultDDPOStableDiffusionPipeline(
-            train_text_encoder,
-            train_text_encoder_embeddings,
-            train_unet,
-            use_lora_text_encoder,
-            use_lora=use_lora,
-            pretrained_model_name="runwayml/stable-diffusion-v1-5"
-        ).sd_pipeline
-        prompts=[subject]
-        pretrain_image_list=[src_image]
-        _pretrain_image_list=[]
-        _pretrain_prompt_list=[]
-        for x in range(pretrain_steps_per_epoch):
-            if x%2==0:
-                _pretrain_image_list.append(pretrain_image_list[x% len(pretrain_image_list)])
-            else:
-                _pretrain_image_list.append(pretrain_image_list[x% len(pretrain_image_list)].transpose(Image.FLIP_LEFT_RIGHT))
-            _pretrain_prompt_list.append(prompts[x%len(prompts)])
-        pretrain_prompt_list=_pretrain_prompt_list
-        pretrain_image_list=_pretrain_image_list
-        assert len(pretrain_image_list)==len(pretrain_prompt_list), f"error {len(pretrain_image_list)} != {len(pretrain_prompt_list)}"
-        assert len(pretrain_image_list)==pretrain_steps_per_epoch, f"error {len(pretrain_image_list)} != {pretrain_steps_per_epoch}"
-        optimizer=torch.optim.AdamW([p for p in trained_pipeline.unet.parameters() if p.requires_grad])
-        trained_pipeline=train_unet_function(
-                trained_pipeline,
-                num_epochs,
-                pretrain_image_list,
-                pretrain_prompt_list,
-                optimizer,
-                False,
-                "prior",
-                batch_size,
-                1.0,
-                subject,
-                accelerator,
-                num_inference_steps,
-                0.0,
-                True
-            )
-        
-        untrained_pipeline=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
-        untrained_pipeline.vae=untrained_pipeline.vae.to(accelerator.device)
-        untrained_pipeline.text_encoder=untrained_pipeline.text_encoder.to(accelerator.device)
-        untrained_pipeline.unet=untrained_pipeline.unet.to(accelerator.device)
+    
         
         
     elif method_name==CLASSIFIER:
