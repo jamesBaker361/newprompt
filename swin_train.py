@@ -135,6 +135,7 @@ class ContrastiveLoss(nn.Module):
 
 def generate_random_crops(image, n):
     width, height = image.size
+    ratio=random.uniform(0.8, 1)
     crop_width = int(0.8 * width)
     crop_height = int(0.8 * height)
     
