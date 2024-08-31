@@ -293,7 +293,7 @@ def main(args):
                     loss=model.forward_loss(batch,pred,mask)
                     loss_value = loss.item()
                     loss_list.append(loss_value)
-                    loss.backward()
+                    loss.backward(retain_graph=True)
                     optimizer.step()
                     clusters.append(embeddings)
                     '''for i in range(len(embeddings)):
