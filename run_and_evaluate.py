@@ -62,7 +62,7 @@ from transformers import AutoModelForImageSegmentation
 from swin_mae import SwinMAE
 from proto_gan_models import Discriminator
 from controlnet_test import OpenposeDetectorResize
-from classifier_guidance import classifier_sample
+from classifier_guidance import classifier_sample,classifier_call
 from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
 
 torch.autograd.set_detect_anomaly(True)
@@ -697,7 +697,7 @@ def evaluate_one_sample(
                 width=width,).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==IP_ADAPTER or method_name==FACE_IP_ADAPTER:
-        pipeline=StableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-55",safety_checker=None)
+        pipeline=StableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-5",safety_checker=None)
         unet=pipeline.unet
         vae=pipeline.vae
         tokenizer=pipeline.tokenizer
@@ -737,7 +737,7 @@ def evaluate_one_sample(
             train_unet,
             use_lora_text_encoder,
             use_lora=use_lora,
-            pretrained_model_name="botp/stable-diffusion-v1-55"
+            pretrained_model_name="botp/stable-diffusion-v1-5"
         )
         print("len trainable parameters",len(pipeline.get_trainable_layers()))
         prompts=[]
@@ -966,7 +966,10 @@ def evaluate_one_sample(
                         width=width,
                         height=height,
                         safety_checker=None).images[0]
-            evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[removed_src,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
+            #evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[removed_src,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
+            evaluation_image=classifier_call(pipe,src_image_list=[removed_src,prompt_image],
+                                             src_text_list=[evaluation_prompt,subject],
+                                             num_inference_steps=num_inference_steps,negative_prompt=NEGATIVE).images[0]
             evaluation_image_list.append(evaluation_image)
             
             
