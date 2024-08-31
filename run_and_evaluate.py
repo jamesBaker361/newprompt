@@ -646,7 +646,7 @@ def evaluate_one_sample(
     elif method_name==RIVAL:
         evaluation_image_list=[
             make_eval_image(inf_config,accelerator,is_half,
-                            "runwayml/stable-diffusion-v1-5",
+                            "botp/stable-diffusion-v1-5",
                             evaluation_prompt.format(subject),
                             NEGATIVE,src_image,seed,inner_round,
                             num_inference_steps,editing_early_steps) for evaluation_prompt in evaluation_prompt_list
@@ -901,7 +901,7 @@ def evaluate_one_sample(
         print(f"evaluation with entity_name {entity_name}")
 
         if method_name ==CONTROL_HACK:
-            untrained_pipeline=UnsafeStableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+            untrained_pipeline=UnsafeStableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-5")
             untrained_pipeline.vae=untrained_pipeline.vae.to(accelerator.device)
             untrained_pipeline.text_encoder=untrained_pipeline.text_encoder.to(accelerator.device)
             untrained_pipeline.unet=untrained_pipeline.unet.to(accelerator.device)
@@ -958,7 +958,7 @@ def evaluate_one_sample(
         
         
     elif method_name==CLASSIFIER:
-        pipe=UnsafeStableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+        pipe=UnsafeStableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-5")
         evaluation_image_list=[]
         for evaluation_prompt in evaluation_prompt_list:
             prompt_image=pipe(evaluation_prompt,num_inference_steps=num_inference_steps,
