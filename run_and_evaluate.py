@@ -697,7 +697,7 @@ def evaluate_one_sample(
                 width=width,).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==IP_ADAPTER or method_name==FACE_IP_ADAPTER:
-        pipeline=StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5",safety_checker=None)
+        pipeline=StableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-55",safety_checker=None)
         unet=pipeline.unet
         vae=pipeline.vae
         tokenizer=pipeline.tokenizer
@@ -737,7 +737,7 @@ def evaluate_one_sample(
             train_unet,
             use_lora_text_encoder,
             use_lora=use_lora,
-            pretrained_model_name="runwayml/stable-diffusion-v1-5"
+            pretrained_model_name="botp/stable-diffusion-v1-55"
         )
         print("len trainable parameters",len(pipeline.get_trainable_layers()))
         prompts=[]
