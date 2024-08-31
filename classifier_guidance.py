@@ -15,7 +15,7 @@ def classifier_sample(pipe: StableDiffusionPipeline, prompt:str, guidance_loss_s
          early_stop:int = 20, cfg_norm:bool=True, cfg_decay:bool=True)->Image.Image:
     device=pipe.unet.device
     # If no starting point is passed, create one
-    latent_dim=src_image_list[0].size[0]*pipe.vae.config.scaling_factor
+    latent_dim=int(src_image_list[0].size[0]*pipe.vae.config.scaling_factor)
     if start_latents is None:
         start_latents = torch.randn((1, 4,latent_dim , latent_dim), device=device)
 
