@@ -62,7 +62,7 @@ from transformers import AutoModelForImageSegmentation
 from swin_mae import SwinMAE
 from proto_gan_models import Discriminator
 from controlnet_test import OpenposeDetectorResize
-from classifier_guidance import classifier_sample,classifier_call
+from classifier_guidance import classifier_call
 from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
 
 torch.autograd.set_detect_anomaly(True)
