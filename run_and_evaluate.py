@@ -961,13 +961,14 @@ def evaluate_one_sample(
         pipe=UnsafeStableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-5")
         evaluation_image_list=[]
         for evaluation_prompt in evaluation_prompt_list:
+            evaluation_prompt=evaluation_prompt.format(subject)
             prompt_image=pipe(evaluation_prompt,num_inference_steps=num_inference_steps,
                         negative_prompt=NEGATIVE,
                         width=width,
                         height=height,
                         safety_checker=None).images[0]
             #evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[removed_src,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
-            evaluation_image=classifier_call(pipe,src_image_list=[removed_src,prompt_image],
+            evaluation_image=classifier_call(pipe, prompt=evaluation_prompt,src_image_list=[removed_src,prompt_image],
                                              src_text_list=[evaluation_prompt,subject],
                                              num_inference_steps=num_inference_steps,negative_prompt=NEGATIVE).images[0]
             evaluation_image_list.append(evaluation_image)
