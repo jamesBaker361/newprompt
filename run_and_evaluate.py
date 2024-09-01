@@ -932,7 +932,7 @@ def evaluate_one_sample(
                                 safety_checker=None).images[0]
                         pose_image=detector(src_image,untrained_image)
                     except IndexError:
-                        print("index error")
+                        print(f"index error for {evaluation_prompt.format(entity_name)} ")
                 evaluation_image=pipe(evaluation_prompt.format(entity_name),image=pose_image,num_inference_steps=num_inference_steps).images[0]
 
                 evaluation_image_list.append(evaluation_image)
