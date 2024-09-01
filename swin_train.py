@@ -104,6 +104,7 @@ class ContrastiveLossNormalized(nn.Module):
         
         # Compute Euclidean distance between normalized embeddings
         euclidean_distance = torch.norm(output1 - output2, dim=1)
+        print("euclid dist", euclidean_distance)
         
         # Contrastive Loss calculation
         loss_similar = label * torch.pow(euclidean_distance, 2)
