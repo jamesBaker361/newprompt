@@ -52,6 +52,8 @@ def classifier_sample(pipe: StableDiffusionPipeline, prompt:str, guidance_loss_s
     latents = start_latents.clone()
     latents *= pipe.scheduler.init_noise_sigma
 
+    print('pipe.scheduler.init_noise_sigma',pipe.scheduler.init_noise_sigma)
+
     # Prepare the scheduler
     
 
@@ -60,7 +62,7 @@ def classifier_sample(pipe: StableDiffusionPipeline, prompt:str, guidance_loss_s
 
         if i > early_stop: guidance_loss_scale = 0 # Early stop (optional)
 
-        sigma = pipe.scheduler.sigmas[i]
+        #sigma = pipe.scheduler.sigmas[i]
 
         # Set requires grad
         if guidance_loss_scale != 0: latents = latents.detach().requires_grad_()
@@ -88,6 +90,9 @@ def classifier_sample(pipe: StableDiffusionPipeline, prompt:str, guidance_loss_s
             noise_pred = noise_pred * (torch.linalg.norm(noise_pred_uncond) / torch.linalg.norm(noise_pred))
 
         if guidance_loss_scale != 0:
+            prev_timestep = t - pipe.scheduler.config.num_train_timesteps // pipe.scheduler.num_inference_steps
+            variance= pipe.scheduler._get_variance(t,prev_timestep)
+            sigma=
             mid_block_output=pipe.unet.mid_block.output
             for src_mid_block_output in src_mid_block_output_list:
                 # Calculate our loss
@@ -358,7 +363,7 @@ def classifier_call(
         self._num_timesteps = len(timesteps)
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
-                sigma = self.scheduler.sigmas[i]
+                #sigma = self.scheduler.sigmas[i]
                 if i > early_stop: guidance_loss_scale = 0 # Early stop (optional)
                 if guidance_loss_scale != 0: latents = latents.detach().requires_grad_()
                 if self.interrupt:
@@ -401,6 +406,9 @@ def classifier_call(
                     noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
 
                 if guidance_loss_scale != 0:
+                    prev_timestep = t - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps
+                    variance= self.scheduler._get_variance(t,prev_timestep)
+                    
                     mid_block_output=self.unet.mid_block.output
                     for src_mid_block_output in src_mid_block_output_list:
                         # Calculate our loss
@@ -410,7 +418,7 @@ def classifier_call(
                         cond_grad = torch.autograd.grad(loss*guidance_loss_scale, latents)[0]
 
                         # Modify the latents based on this gradient
-                        latents = latents.detach() - cond_grad  * sigma**2 
+                        latents = latents.detach() - cond_grad  * variance 
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
