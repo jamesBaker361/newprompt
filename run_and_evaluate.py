@@ -922,12 +922,17 @@ def evaluate_one_sample(
             pipe.to(accelerator.device)
             evaluation_image_list=[]
             for evaluation_prompt in evaluation_prompt_list:
-                untrained_image=untrained_pipeline(evaluation_prompt.format(entity_name),num_inference_steps=num_inference_steps,
-                        negative_prompt=NEGATIVE,
-                        width=width,
-                        height=height,
-                        safety_checker=None).images[0]
-                pose_image=detector(src_image,untrained_image)
+                pose_image=None
+                while pose_image==None:
+                    try:
+                        untrained_image=untrained_pipeline(evaluation_prompt.format(entity_name),num_inference_steps=num_inference_steps,
+                                negative_prompt=NEGATIVE,
+                                width=width,
+                                height=height,
+                                safety_checker=None).images[0]
+                        pose_image=detector(src_image,untrained_image)
+                    except IndexError:
+                        print("index error")
                 evaluation_image=pipe(evaluation_prompt.format(entity_name),image=pose_image,num_inference_steps=num_inference_steps).images[0]
 
                 evaluation_image_list.append(evaluation_image)
