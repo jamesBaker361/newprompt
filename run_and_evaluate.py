@@ -921,7 +921,7 @@ def evaluate_one_sample(
             pipe.to(accelerator.device)
             evaluation_image_list=[]
             for evaluation_prompt in evaluation_prompt_list:
-                untrained_image=untrained_pipeline(evaluation_prompt,num_inference_steps=num_inference_steps,
+                untrained_image=untrained_pipeline(evaluation_prompt.format(entity_name),num_inference_steps=num_inference_steps,
                         negative_prompt=NEGATIVE,
                         width=width,
                         height=height,
