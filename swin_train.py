@@ -93,6 +93,7 @@ class ContrastiveLossNormalized(nn.Module):
         self.margin = margin
     
     def forward(self, output1, output2, label):
+        #label 1= same, 0=different
         # Normalize embeddings across all dimensions (batch-wise normalization)
         all_outputs = torch.cat((output1, output2), dim=0)
         mean = all_outputs.mean()
@@ -111,7 +112,7 @@ class ContrastiveLossNormalized(nn.Module):
         loss_dissimilar = (1 - label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
         
         # Return the mean loss over the batch
-        loss = torch.mean(loss_similar + loss_dissimilar)
+        loss =  torch.mean(loss_similar + loss_dissimilar)
         return loss
     
 
@@ -308,16 +309,18 @@ def main(args):
                 clusters=[]
                 contrastive_loss=0.0
                 for batch in subset:
+                    #each batch is a bunch of images of the SAME thing
                     batch=batch.to(device)
                     embeddings,_=model.forward_encoder(batch)
                     clusters.append(embeddings)
                     '''for i in range(len(embeddings)):
                         for j in range(i+1,len(embeddings)):
                             contrastive_loss+=contrastive_loss_module(embeddings[i],embeddings[j],0)'''
-                    contrastive_loss=contrastive_weight* sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],0) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
+                    contrastive_loss=contrastive_weight* sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],1) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
+                    contrastive_loss=len(embeddings)*(len(embeddings)-1)/2 * contrastive_loss
                 for i in range(len(clusters)):
                     for j in range(i+1,len(clusters)):
-                        contrastive_loss+=contrastive_loss_module(clusters[i],clusters[j],1)
+                        contrastive_loss+=contrastive_loss_module(clusters[i],clusters[j],0)/args.contrastive_cluster_size
                 
                 contrastive_loss_list.append(contrastive_loss.item())
                 contrastive_loss.backward()
