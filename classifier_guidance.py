@@ -28,6 +28,7 @@ def classifier_call(
         negative_prompt: Optional[Union[str, List[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
         eta: float = 0.0,
+        classifier_eta:float=1.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         latents: Optional[torch.Tensor] = None,
         prompt_embeds: Optional[torch.Tensor] = None,
@@ -317,7 +318,7 @@ def classifier_call(
                         cond_grad = torch.autograd.grad(loss*guidance_loss_scale, latents)[0]
 
                         # Modify the latents based on this gradient
-                        latents = latents.detach() - cond_grad  * variance 
+                        latents = latents.detach() - cond_grad  * classifier_eta * variance 
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]

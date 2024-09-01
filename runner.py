@@ -162,6 +162,7 @@ parser.add_argument("--remove_background",action="store_true")
 parser.add_argument("--pretrained_swin",type=str,default="/scratch/jlb638/swin_checkpoints/10000_8_512/model_2240.pt")
 parser.add_argument("--pretrained_proto_gan",type=str, default="/scratch/jlb638/10000_proto_32/all_2000.pth")
 parser.add_argument("--image_size",type=int,default=512)
+parser.add_argument("--classifier_eta",type=float,default=1.0)
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -353,7 +354,8 @@ def main(args):
                                                                 args.use_proto_gan,
                                                                 args.initial_proto_gan_weight,
                                                                 args.final_proto_gan_weight,
-                                                                args.pretrained_proto_gan
+                                                                args.pretrained_proto_gan,
+                                                                args.classifier_eta
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={

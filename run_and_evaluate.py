@@ -53,7 +53,7 @@ from huggingface_hub import hf_hub_download, snapshot_download
 from diffusers.models import ControlNetModel
 from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
 from openpose_better import OpenPoseDetectorProbs
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel,DDIMScheduler
 import torchvision
 from torchvision import transforms
 import cv2
@@ -184,7 +184,8 @@ def evaluate_one_sample(
         use_proto_gan:bool,
         initial_proto_gan_weight:float,
         final_proto_gan_weight:float,
-        pretrained_proto_gan:str)->dict:
+        pretrained_proto_gan:str,
+        classifier_eta:float)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
@@ -959,6 +960,8 @@ def evaluate_one_sample(
         
     elif method_name==CLASSIFIER:
         pipe=UnsafeStableDiffusionPipeline.from_pretrained("botp/stable-diffusion-v1-5")
+        pipe.scheduler=DDIMScheduler.from_config(pipe.scheduler.config)
+        pipe.scheduler.set_timesteps(num_inference_steps)
         evaluation_image_list=[]
         for evaluation_prompt in evaluation_prompt_list:
             evaluation_prompt=evaluation_prompt.format(subject)
@@ -969,7 +972,7 @@ def evaluate_one_sample(
                         safety_checker=None).images[0]
             #evaluation_image=classifier_sample(pipe,evaluation_prompt.format(subject),0.1,[removed_src,prompt_image],[evaluation_prompt,subject],negative_prompt=NEGATIVE)
             evaluation_image=classifier_call(pipe, prompt=evaluation_prompt,src_image_list=[removed_src,prompt_image],
-                                             src_text_list=[evaluation_prompt,subject],
+                                             src_text_list=[evaluation_prompt,subject], classifier_eta=classifier_eta,
                                              num_inference_steps=num_inference_steps,negative_prompt=NEGATIVE).images[0]
             evaluation_image_list.append(evaluation_image)
             
