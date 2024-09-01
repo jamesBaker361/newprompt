@@ -12,6 +12,7 @@ from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusion
 def hook_fn(module, input, output):
     module.output = output
 
+@torch.no_grad()
 def classifier_call(
         self:StableDiffusionPipeline,
         early_stop:int=20,
