@@ -131,11 +131,12 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs","swin","proto_gan"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs","swin","proto_gan","clip_align"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
     parser.add_argument(f"--final_{metric}_weight",type=float,default=0.0)
+parser.add_argument("--clip_align_prompt",type=str,default="anatomically_correct_human")
 parser.add_argument("--project_name",type=str,default="one_shot")
 parser.add_argument("--subject_key",type=str,default="subject")
 parser.add_argument("--label_key",type=str,default="label")
@@ -355,7 +356,11 @@ def main(args):
                                                                 args.initial_proto_gan_weight,
                                                                 args.final_proto_gan_weight,
                                                                 args.pretrained_proto_gan,
-                                                                args.classifier_eta
+                                                                args.classifier_eta,
+                                                                args.use_clip_align,
+                                                                args.initial_clip_align_weight,
+                                                                args.final_clip_align_weight,
+                                                                args.clip_align_prompt
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
