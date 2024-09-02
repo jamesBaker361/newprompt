@@ -378,6 +378,9 @@ def evaluate_one_sample(
     src_dream_embedding=dream_model.embed(dream_preprocess(removed_src).to(accelerator.device))[0]
 
     
+    clip_processor=CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+    clip_model=CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+
     
     
     
