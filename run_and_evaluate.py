@@ -456,7 +456,7 @@ def evaluate_one_sample(
             if use_vit_style:
                 vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
                 style_similarities=[
-                    cos_sim_rescaled(vit_src_style_embedding, style_embedding)
+                    cos_sim_rescaled(vit_src_style_embedding, style_embedding).item()
                     for style_embedding in vit_style_embedding_list
                 ]
                 style_similarities=[
