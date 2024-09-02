@@ -283,8 +283,8 @@ def main(args):
         for data_iter_step,batch in enumerate(batched_data):
             optimizer.zero_grad()
             batch=batch.to(device)
-            if data_iter_step % args.accum_iter == 0:
-                adjust_learning_rate(optimizer, data_iter_step / len(batched_data) + e, args)
+            '''if data_iter_step % args.accum_iter == 0:
+                adjust_learning_rate(optimizer, data_iter_step / len(batched_data) + e, args)'''
             
             loss, _, _ = model(batch)
             loss_value = loss.item()
