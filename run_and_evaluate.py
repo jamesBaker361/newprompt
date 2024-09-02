@@ -477,13 +477,14 @@ def evaluate_one_sample(
                 except:
                     pass
             if use_face_probs:
+                face_probs_weight=initial_face_probs_weight+((final_face_probs_weight-initial_face_probs_weight)*time_factor)
                 face_probabilities=[]
                 for image in images:
                     boxes,probs=mtcnn.detect(image)
                     if boxes is None or probs is None:
                         face_probabilities.append(0.0)
                     else:
-                        face_probabilities.append(probs[0])
+                        face_probabilities.append(face_probs_weight*probs[0])
             if use_pose_probs:
                 pose_probs_weight=initial_pose_probs_weight+ ((final_pose_probs_weight-initial_pose_probs_weight) * time_factor)
                 pose_probabilities=[]
