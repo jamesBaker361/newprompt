@@ -185,7 +185,11 @@ def evaluate_one_sample(
         initial_proto_gan_weight:float,
         final_proto_gan_weight:float,
         pretrained_proto_gan:str,
-        classifier_eta:float)->dict:
+        classifier_eta:float,
+        use_clip_align:bool,
+        initial_clip_align_weight:float,
+        final_clip_align_weight:float,
+        clip_align_prompt:str)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
@@ -647,7 +651,7 @@ def evaluate_one_sample(
     elif method_name==RIVAL:
         evaluation_image_list=[
             make_eval_image(inf_config,accelerator,is_half,
-                            "stabilityai/stable-diffusion-2-1",
+                            "CompVis/stable-diffusion-v1-4",
                             evaluation_prompt.format(subject),
                             NEGATIVE,src_image,seed,inner_round,
                             num_inference_steps,editing_early_steps) for evaluation_prompt in evaluation_prompt_list
@@ -698,7 +702,7 @@ def evaluate_one_sample(
                 width=width,).images[0] for evaluation_prompt in evaluation_prompt_list
         ]
     elif method_name==IP_ADAPTER or method_name==FACE_IP_ADAPTER:
-        pipeline=StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1",safety_checker=None)
+        pipeline=StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4",safety_checker=None)
         unet=pipeline.unet
         vae=pipeline.vae
         tokenizer=pipeline.tokenizer
@@ -738,7 +742,7 @@ def evaluate_one_sample(
             train_unet,
             use_lora_text_encoder,
             use_lora=use_lora,
-            pretrained_model_name="stabilityai/stable-diffusion-2-1"
+            pretrained_model_name="CompVis/stable-diffusion-v1-4"
         )
         print("len trainable parameters",len(pipeline.get_trainable_layers()))
         prompts=[]
@@ -902,7 +906,7 @@ def evaluate_one_sample(
         print(f"evaluation with entity_name {entity_name}")
 
         if method_name ==CONTROL_HACK:
-            untrained_pipeline=UnsafeStableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1")
+            untrained_pipeline=UnsafeStableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
             untrained_pipeline.vae=untrained_pipeline.vae.to(accelerator.device)
             untrained_pipeline.text_encoder=untrained_pipeline.text_encoder.to(accelerator.device)
             untrained_pipeline.unet=untrained_pipeline.unet.to(accelerator.device)
@@ -964,7 +968,7 @@ def evaluate_one_sample(
         
         
     elif method_name==CLASSIFIER:
-        pipe=UnsafeStableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1")
+        pipe=UnsafeStableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
         pipe.scheduler=DDIMScheduler.from_config(pipe.scheduler.config)
         pipe.scheduler.set_timesteps(num_inference_steps)
         evaluation_image_list=[]
