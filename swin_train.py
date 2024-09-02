@@ -332,12 +332,14 @@ def main(args):
                 different_contrastive_loss=different_contrastive_loss/(len(embeddings)* len(clusters) *(len(clusters)-1)/2 )
                 different_contrastive_loss.backward()
                 optimizer.step()
+                different_contrastive_loss_list.append(different_contrastive_loss.item())
                 
                 #similarity_contrastive_loss.backward()
                 optimizer.step()
             end_time=time.time()
             print(f"contrastive epoch {e} elapsed {end_time-start_time} seconds")
-            metrics["contrastive_loss"]=np.mean(similarity_contrastive_loss_list)
+            metrics["similarity_contrastive_loss"]=np.mean(similarity_contrastive_loss_list)
+            metrics["different_contrastive_loss"]=np.mean(different_contrastive_loss_list)
                         
 
                 
