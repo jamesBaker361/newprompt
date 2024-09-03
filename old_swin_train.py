@@ -19,6 +19,7 @@ from torch import nn
 from huggingface_hub import HfApi
 from experiment_helpers.checkpoint import find_latest_checkpoint
 import re
+from swin_contrast_utils import generate_random_crops, sample_subsets, ContrastiveLoss
 api = HfApi()
 
 parser=argparse.ArgumentParser()
@@ -115,6 +116,18 @@ def main(args):
     for j in range(0,len(data),args.batch_size):
         batched_data.append(data[j:j+args.batch_size])
     batched_data=[torch.stack(batch) for batch in batched_data]
+
+    if args.train_contrastive:
+        contrastive_loss_module=ContrastiveLoss(args.contrastive_margin)
+        contrastive_data=[row["splash"] for row in load_dataset(args.hf_dataset,split="train")]
+        if args.test_data:
+            contrastive_data=[Image.open("boot.jpg") for _ in range(32)]
+        contrastive_batches=[]
+        for image in contrastive_data:
+            random_crops=generate_random_crops(image,args.contrastive_cluster_size)
+            random_crops=[trans(crop) for crop in random_crops]
+            contrastive_batches.append(random_crops)
+        contrastive_batches=[torch.stack(contrast_batch) for contrast_batch in contrastive_batches]
 
     
 
