@@ -32,7 +32,7 @@ parser.add_argument('--save_freq', default=400, type=int)
 parser.add_argument('--checkpoint_encoder', default='', type=str)
 parser.add_argument('--checkpoint_decoder', default='', type=str)
 parser.add_argument('--data_path', default=r'C:\文件\数据集\腮腺对比学习数据集\三通道合并\concat\train', type=str)  # fill in the dataset path here
-parser.add_argument('--mask_ratio', default=0.5, type=float,
+parser.add_argument('--mask_ratio', default=0.25, type=float,
                     help='Masking ratio (percentage of removed patches).')
 parser.add_argument("--img_size",type=int,default=512)
 parser.add_argument("--patch_size",type=int,default=4)
