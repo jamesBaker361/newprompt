@@ -171,6 +171,7 @@ def main(args):
     # Start the training process
     print(f"Start training for {args.epochs} epochs")
     for e in range(args.start_epoch,args.epochs+1):
+        contrastive_weight=args.contrastive_weight*(e/args.epochs)
         loss_list=[]
         start_time=time.time()
         for data_iter_step,batch in enumerate(batched_data):
@@ -192,6 +193,44 @@ def main(args):
         metrics={
             "loss":np.mean(loss_list)
         }
+        if args.train_contrastive and contrastive_weight>0:
+            start_time=time.time()
+            similarity_contrastive_loss_list=[]
+            different_contrastive_loss_list=[]
+            subsets=sample_subsets(contrastive_batches,args.contrastive_n_clusters)
+            
+            for subset in subsets:
+                optimizer.zero_grad()
+                clusters=[]
+                similarity_contrastive_loss=0.0
+                for batch in subset:
+                    #each batch is a bunch of images of the SAME thing
+                    batch=batch.to(device)
+                    embeddings,_=model.forward_encoder(batch)
+                    #clusters.append(embeddings)
+                    '''for i in range(len(embeddings)):
+                        for j in range(i+1,len(embeddings)):
+                            contrastive_loss+=contrastive_loss_module(embeddings[i],embeddings[j],0)'''
+                    similarity_contrastive_loss=contrastive_weight* sum([sum([contrastive_loss_module(embeddings[i],embeddings[j],1) for j in range(i+1,len(embeddings)) ]) for i in range(len(embeddings)) ])
+                    similarity_contrastive_loss=similarity_contrastive_loss/(len(embeddings)* (len(embeddings)-1)/2)
+                    similarity_contrastive_loss.backward()
+                    optimizer.step()
+                    similarity_contrastive_loss_list.append(similarity_contrastive_loss.item())
+                optimizer.zero_grad()
+                for batch in subset:
+                    #each batch is a bunch of images of the SAME thing
+                    batch=batch.to(device)
+                    embeddings,_=model.forward_encoder(batch)
+                    clusters.append(embeddings)
+                different_contrastive_loss=contrastive_weight*sum([sum([contrastive_loss_module(clusters[i],clusters[j],0) for j in range(i+1,len(clusters))]) for i in range(len(clusters)) ])
+                different_contrastive_loss=different_contrastive_loss/(len(embeddings)* len(clusters) *(len(clusters)-1)/2 )
+                different_contrastive_loss.backward()
+                optimizer.step()
+                different_contrastive_loss_list.append(different_contrastive_loss.item())
+            end_time=time.time()
+            print(f"contrastive epoch {e} elapsed {end_time-start_time} seconds")
+            metrics["similarity_contrastive_loss"]=np.mean(similarity_contrastive_loss_list)
+            metrics["different_contrastive_loss"]=np.mean(different_contrastive_loss_list)
         for k,v in metrics.items():
             print("\t",k,v)
         accelerator.log(metrics)
