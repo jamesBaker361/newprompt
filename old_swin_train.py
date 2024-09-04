@@ -28,10 +28,8 @@ parser.add_argument("--mixed_precision",type=str,default="no")
 parser.add_argument("--project_name",type=str,default="swin")
 parser.add_argument('--batch_size', default=8, type=int)
 parser.add_argument('--epochs', default=10, type=int)
-parser.add_argument('--save_freq', default=400, type=int)
 parser.add_argument('--checkpoint_encoder', default='', type=str)
 parser.add_argument('--checkpoint_decoder', default='', type=str)
-parser.add_argument('--data_path', default=r'C:\文件\数据集\腮腺对比学习数据集\三通道合并\concat\train', type=str)  # fill in the dataset path here
 parser.add_argument('--mask_ratio', default=0.75, type=float,
                     help='Masking ratio (percentage of removed patches).')
 parser.add_argument("--img_size",type=int,default=512)
@@ -63,16 +61,14 @@ parser.add_argument('--warmup_epochs', type=int, default=10, metavar='N',
 # other parameters
 parser.add_argument('--output_dir', default='./output_dir',
                     help='path where to save, empty for no saving')
-parser.add_argument('--log_dir', default='./output_dir',
-                    help='path where to tensorboard log')
 parser.add_argument('--device', default='cuda',
                     help='device to use for training / testing')
 parser.add_argument('--seed', default=0, type=int)
 parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                     help='start epoch')
-parser.add_argument('--num_workers', default=8, type=int)
-parser.add_argument('--pin_mem', action='store_true',
-                    help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
+
+
+
 parser.add_argument("--hf_dataset",type=str,default="jlbaker361/new_league_data_max_plus")
 parser.add_argument("--save_interval",type=int,default=50)
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/swin_images/")
