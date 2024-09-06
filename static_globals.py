@@ -21,6 +21,11 @@ FACE_PROBS="face_probs"
 CONTROL_HACK="control_hack"
 CLASSIFIER="classifier"
 
+
+#semantic strategies to find point correspondences
+OPENPOSE_POINTS="openpose_points" #match openpose points
+NEAREST_NEIGHBORS="nearest_neighbors" #use nearest neighbors
+
 PLACEHOLDER="<S>"
 
 METHOD_LIST=[BLIP_DIFFUSION, ELITE, RIVAL,IP_ADAPTER,FACE_IP_ADAPTER,CHOSEN,INSTANT,DDPO,DPOK,DDPO_MULTI,CONTROL_HACK]
