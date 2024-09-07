@@ -276,7 +276,7 @@ def evaluate_one_sample(
         src_swin_tensor=composed_trans(removed_src).unsqueeze(0).to(accelerator.device)
         src_swin_embedding_raw,_=swin_model.forward_encoder(src_swin_tensor)
         src_swin_embedding_raw=swin_model.first_patch_expanding(src_swin_embedding_raw)
-        src_swin_embedding_raw = rearrange(src_swin_embedding_raw, 'B H W C -> B C H W ')
+        src_swin_embedding_raw = rearrange(src_swin_embedding_raw, 'B H W C -> B C H W ').cpu().detach()
         print(src_swin_embedding_raw.size())
         raw_swin_size=src_swin_embedding_raw.size()[-2:]
         print('raw_swin_size',raw_swin_size)
@@ -375,7 +375,7 @@ def evaluate_one_sample(
     clip_processor=CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
     clip_model=CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
 
-    
+    @torch.no_grad()
     def semantic_reward(image:Image.Image,semantic_method:str,image_mask:torch.Tensor=None):
 
         
@@ -388,12 +388,10 @@ def evaluate_one_sample(
                 swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
                 swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
                 swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
-                embedding_raw = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0)
+                embedding_raw = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0).cpu().detach()
                 src_embedding_raw=src_swin_embedding_raw
-            print('image_mask',image_mask)
             valid_pixels = np.argwhere(image_mask != 0)
-            print("valid_pixels",valid_pixels)
-            sampled_indices = random.sample(list(valid_pixels), semantic_matching_points)
+            sampled_indices = random.sample(list(valid_pixels), min(semantic_matching_points,len(valid_pixels)))
             for (x,y) in sampled_indices:
                 [_,sim]=nearest(embedding_raw, src_embedding_raw,x,y)
                 similarity+=sim
