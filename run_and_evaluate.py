@@ -66,6 +66,7 @@ from classifier_guidance import classifier_call
 from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
 from einops import rearrange
 from nearest_neighbors import nearest
+from dift.src.models.dift_sd import SDFeaturizer
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -295,6 +296,15 @@ def evaluate_one_sample(
             sim=cos_sim_rescaled(swin_embedding,src_swin_embedding,True)
             return sim
         
+    if use_dift:
+        sd_featurizer=SDFeaturizer(dift_model)
+        src_image_tensor=PILToTensor()(removed_src)
+        src_image_tensor=rescale_around_zero(src_image_tensor)
+        src_dift_ft=sd_featurizer.forward(src_image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
+        print("src_dift_ft size",src_dift_ft.size())
+        dift_size=src_dift_ft.size()[-2:]
+        print("dift_size ",dift_size)
+
 
     if use_proto_gan:
         proto_discriminator=Discriminator(64,3,height,1)
