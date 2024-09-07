@@ -131,7 +131,8 @@ parser.add_argument(
 )
 parser.add_argument("--ratio_clip",type=int,default=0.0001)
 parser.add_argument("--face_margin",type=int,default=10,help="pixel margin for extracted face")
-metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim","face_probs","pose_probs","swin","proto_gan","clip_align"]
+metrics=["face","img_reward","vit","vit_style","vit_content","mse","fashion_clip","dream_sim",
+         "face_probs","pose_probs","swin","proto_gan","clip_align","dift"]
 for metric in metrics:
     parser.add_argument(f"--use_{metric}",action="store_true")
     parser.add_argument(f"--initial_{metric}_weight",type=float,default=0.0)
@@ -366,7 +367,10 @@ def main(args):
                                                                 args.clip_align_prompt,
                                                                 args.semantic_matching,
                                                                 args.semantic_matching_points,
-                                                                args.semantic_matching_strategy
+                                                                args.semantic_matching_strategy,
+                                                                args.use_swin,
+                                                                args.initial_swin_weight,
+                                                                args.final_swin_weight,
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={

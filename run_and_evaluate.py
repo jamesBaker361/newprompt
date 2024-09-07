@@ -194,7 +194,10 @@ def evaluate_one_sample(
         clip_align_prompt:str,
         semantic_matching:bool,
         semantic_matching_points:int,
-        semantic_matching_strategy:str)->dict:
+        semantic_matching_strategy:str,
+        use_swin:bool,
+        initial_swin_weight:float,
+        final_swin_weight:float,)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
