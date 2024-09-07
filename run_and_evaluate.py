@@ -199,7 +199,8 @@ def evaluate_one_sample(
         initial_dift_weight:float,
         final_dift_weight:float,
         dift_t:int,
-        dift_up_ft_index:int,)->dict:
+        dift_up_ft_index:int,
+        dift_model:str)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()

@@ -170,6 +170,7 @@ parser.add_argument("--semantic_matching_points",type=int,default=16,help="numbe
 parser.add_argument("--semantic_matching_strategy",type=str,default=OPENPOSE_POINTS)
 parser.add_argument("--dift_t",type=int,default=261)
 parser.add_argument("--dift_up_ft_index",type=int,default=1)
+parser.add_argument("--dift_model",type=str,default="stabilityai/stable-diffusion-2-1")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -374,7 +375,8 @@ def main(args):
                                                                 args.initial_dift_weight,
                                                                 args.final_dift_weight,
                                                                 args.dift_t,
-                                                                args.dift_up_ft_index
+                                                                args.dift_up_ft_index,
+                                                                args.dift_model
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
