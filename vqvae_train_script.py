@@ -7,6 +7,14 @@ from datasets import load_dataset
 from torchvision import transforms
 from PIL import Image
 import torch
+from vqvae_model import VQVAE
+import torch.optim as optim
+import numpy as np
+
+import wandb
+from torchvision.utils import save_image
+
+
 
 parser=argparse.ArgumentParser()
 
@@ -28,6 +36,13 @@ parser.add_argument("--contrastive_margin",type=float,default=2.0)
 parser.add_argument("--contrastive_start_epoch",type=int,default=150)
 parser.add_argument('--batch_size', default=8, type=int)
 parser.add_argument('--epochs', default=10, type=int)
+parser.add_argument("--n_hiddens", type=int, default=128)
+parser.add_argument("--n_residual_hiddens", type=int, default=32)
+parser.add_argument("--n_residual_layers", type=int, default=2)
+parser.add_argument("--embedding_dim", type=int, default=64)
+parser.add_argument("--n_embeddings", type=int, default=512)
+parser.add_argument("--beta", type=float, default=.25)
+parser.add_argument("--learning_rate", type=float, default=3e-4)
 
 
 
@@ -61,6 +76,59 @@ def main(args):
     print(f"each epoch has {len(batched_data)} batches")
     for fixed in fixed_images:
         print("fixed range",torch.max(fixed),torch.min(fixed))
+
+    model= VQVAE(args.n_hiddens, args.n_residual_hiddens,
+              args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta).to(device)
+    model.train()
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, amsgrad=True)
+
+    for e in range(args.epochs):
+        start_time=time.time()
+        recon_list=[]
+        perplexity_list=[]
+        embedding_list=[]
+        loss_list=[]
+        for i,batch in enumerate(batched_data):
+            optimizer.zero_grad()
+            batch=batch.to(device)
+            embedding_loss, predicted, perplexity = model(batch)
+
+            recon_loss = torch.mean((predicted - batch)**2) #/ x_train_var
+            loss = recon_loss + embedding_loss
+
+            loss.backward()
+            optimizer.step()
+            recon_list.append(recon_loss.item())
+            perplexity_list.append(perplexity.item())
+            embedding_list.append(embedding_loss.item())
+            loss_list.append(loss.item())
+
+        metrics={
+            "recon_loss":np.mean(recon_list),
+            "perplexity":np.mean(perplexity_list),
+            "embedding_loss":np.mean(embedding_list),
+            "loss":np.mean(loss_list)
+        }
+        end_time=time.time()
+        print(f"epoch {e} elapsed {end_time-start_time} seconds")
+        for k,v in metrics.items():
+            print("\t",k,v)
+        accelerator.log(metrics)
+        with torch.no_grad():
+            _, predicted, __ = model(fixed_images)
+            print("pred range",torch.max(pred),torch.min(pred))
+            pred=pred.add(1).mul(0.5)
+            for index,image in enumerate(pred):
+                src_image=fixed_images[index].add(1).mul(0.5)
+                
+                path=f"{args.image_dir}pred_{index}.jpg"
+                save_image([src_image,image],path)
+                try:
+                    accelerator.log({
+                        f"pred_{index}":wandb.Image(path)
+                    })
+                except:
+                    print("couldnt upload ",path)
 
 if __name__=='__main__':
     print_details()
