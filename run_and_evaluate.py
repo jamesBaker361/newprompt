@@ -218,31 +218,6 @@ def evaluate_one_sample(
         extracted_face_tensor=torch.ones((3,112,112))
     face_image=torchvision.transforms.ToPILImage()(extracted_face_tensor)
     print("subject",subject)
-    '''try:
-        blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b")
-        blip_model.eval()
-        blip_model.requires_grad_(False)
-        caption_inputs = blip_processor(src_image, "", return_tensors="pt")
-        caption_out=blip_model.generate(**caption_inputs)
-        caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
-        print("blip caption ",caption)
-        
-    except:
-        try:
-            blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b",force_download=True)
-            blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b",force_download=True)
-            blip_model.eval()
-            blip_model.requires_grad_(False)
-            caption_inputs = blip_processor(src_image, "", return_tensors="pt")
-            caption_out=blip_model.generate(**caption_inputs)
-            caption=blip_processor.decode(caption_out[0],skip_special_tokens=True).strip()
-            print("blip caption ",caption)
-        except:
-            print("culoldmnt load blip?")'''
-    #blip_model.to(accelerator.device)
-
-    #blip_processor,blip_model=accelerator.prepare(blip_processor,blip_model)
 
     try:
         vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
