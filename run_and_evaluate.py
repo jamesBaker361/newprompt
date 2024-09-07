@@ -64,6 +64,8 @@ from proto_gan_models import Discriminator
 from controlnet_test import OpenposeDetectorResize
 from classifier_guidance import classifier_call
 from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
+from einops import rearrange
+from nearest_neighbors import nearest
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -270,10 +272,15 @@ def evaluate_one_sample(
        
         src_swin_tensor=composed_trans(removed_src).unsqueeze(0).to(accelerator.device)
         src_swin_embedding_raw,_=swin_model.forward_encoder(src_swin_tensor)
+        src_swin_embedding_raw=swin_model.first_patch_expanding(src_swin_embedding_raw)
+        src_swin_embedding_raw = rearrange(src_swin_embedding_raw, 'B H W C -> B C H W ')
+        print(src_swin_embedding_raw.size())
         raw_swin_size=src_swin_embedding_raw.size()[-2:]
         print('raw_swin_size',raw_swin_size)
         swin_mask =F.interpolate(mask,size=raw_swin_size,mode="nearest")
+        
         src_swin_embedding=torch.flatten(src_swin_embedding_raw)
+        src_swin_embedding_raw=src_swin_embedding_raw.squeeze(0)
 
         def get_swin_similarity(image:Image.Image):
             tensor_img=composed_trans(image).unsqueeze(0).to(accelerator.device)
@@ -366,12 +373,26 @@ def evaluate_one_sample(
     
     def semantic_reward(image:Image.Image,semantic_method:str,image_mask:torch.Tensor=None):
 
-        if semantic_method=="swin":
-            if semantic_matching_strategy==NEAREST_NEIGHBORS:
+        
+        if semantic_matching_strategy==NEAREST_NEIGHBORS:
+            similarity=0.0
+            valid_pixels = np.argwhere(image_mask == 0)
+            sampled_indices = random.sample(list(valid_pixels), semantic_matching_points)
+            if semantic_method=="swin":
                 image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
-                similarity=0.0
-                valid_pixels = np.argwhere(image_mask == 0)
-                sampled_indices = random.sample(list(valid_pixels), semantic_matching_points)
+                swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
+                swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
+                swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
+                embedding_raw = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0)
+                src_embedding_raw=src_swin_embedding_raw
+            for (x,y) in sampled_indices:
+                [_,sim]=nearest(embedding_raw, src_embedding_raw,x,y)
+                similarity+=sim
+            return similarity/semantic_matching_points
+
+            
+            
+
 
             
 
@@ -405,7 +426,7 @@ def evaluate_one_sample(
                 removed_images=[r[0] for r in images_and_masks]
             elif remove_background_flag:
                 removed_images=[remove_background_birefnet(image,birefnet) for image in images]
-
+            print(removed_images)
             if use_vit_content or use_vit_style or use_vit_distance:
                 vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
                     vit_processor,vit_model,removed_images,False
@@ -439,9 +460,14 @@ def evaluate_one_sample(
 
             if use_swin:
                 swin_weight=initial_swin_weight+ ((final_swin_weight-initial_swin_weight)* time_factor)
-                swin_similarities=[
-                    swin_weight * get_swin_similarity(image) for image in removed_images
-                ]
+                if semantic_matching:
+                    swin_similarities=[
+                    swin_weight * semantic_reward(image,"swin",mask) for image,mask in images_and_masks
+                    ]
+                else:
+                    swin_similarities=[
+                        swin_weight * get_swin_similarity(image) for image in removed_images
+                    ]
                 try:
                     accelerator.log({
                         "swin_similarity":np.mean(swin_similarities)
