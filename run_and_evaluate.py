@@ -197,10 +197,10 @@ def evaluate_one_sample(
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
     #src_image=center_crop_to_min_dimension_and_resize(src_image)
-    if remove_background_flag:
-        birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
-        removed_src=remove_background_birefnet(src_image,birefnet)
-    else:
+    
+    birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
+    removed_src,mask=remove_background_birefnet(src_image,birefnet)
+    if remove_background_flag==False:
         removed_src=src_image
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
     ir_model.requires_grad_(False)
