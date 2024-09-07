@@ -197,7 +197,9 @@ def evaluate_one_sample(
         semantic_matching_strategy:str,
         use_dift:bool,
         initial_dift_weight:float,
-        final_dift_weight:float,)->dict:
+        final_dift_weight:float,
+        dift_t:int,
+        dift_up_ft_index:int,)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()

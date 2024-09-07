@@ -168,6 +168,8 @@ parser.add_argument("--classifier_eta",type=float,default=1.0)
 parser.add_argument("--semantic_matching",action="store_true")
 parser.add_argument("--semantic_matching_points",type=int,default=16,help="number of points to do semantic matching for")
 parser.add_argument("--semantic_matching_strategy",type=str,default=OPENPOSE_POINTS)
+parser.add_argument("--dift_t",type=int,default=261)
+parser.add_argument("--dift_up_ft_index",type=int,default=1)
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -233,7 +235,7 @@ def main(args):
         "  {} in the snow",
         " {} in the street",
         " {} by the Eiffel Tower",
-        "a Greek marble sculpture of a {}",
+        "a sculpture of a {}",
         #"a painting of a {} in the style of Vincent Van Gogh",
         "a black and white photograph of a {}",
        # "a Japanese woodblock print of a {}",
@@ -371,6 +373,8 @@ def main(args):
                                                                 args.use_dift,
                                                                 args.initial_dift_weight,
                                                                 args.final_dift_weight,
+                                                                args.dift_t,
+                                                                args.dift_up_ft_index
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
