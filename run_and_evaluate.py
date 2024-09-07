@@ -199,7 +199,7 @@ def evaluate_one_sample(
     #src_image=center_crop_to_min_dimension_and_resize(src_image)
     
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
-    removed_src,mask=remove_background_birefnet(src_image,birefnet)
+    removed_src,mask=remove_background_birefnet(src_image,birefnet,return_mask=True)
     if remove_background_flag==False:
         removed_src=src_image
     ir_model=image_reward.load("/scratch/jlb638/reward-blob",med_config="/scratch/jlb638/ImageReward/med_config.json")
@@ -269,8 +269,11 @@ def evaluate_one_sample(
 
        
         src_swin_tensor=composed_trans(removed_src).unsqueeze(0).to(accelerator.device)
-        src_swin_embedding,_=swin_model.forward_encoder(src_swin_tensor)
-        src_swin_embedding=torch.flatten(src_swin_embedding)
+        src_swin_embedding_raw,_=swin_model.forward_encoder(src_swin_tensor)
+        raw_swin_size=src_swin_embedding_raw.size()[-2:]
+        print('raw_swin_size',raw_swin_size)
+        swin_mask =F.interpolate(mask,size=raw_swin_size,mode="nearest")
+        src_swin_embedding=torch.flatten(src_swin_embedding_raw)
 
         def get_swin_similarity(image:Image.Image):
             tensor_img=composed_trans(image).unsqueeze(0).to(accelerator.device)
@@ -278,6 +281,7 @@ def evaluate_one_sample(
             swin_embedding=torch.flatten(swin_embedding)
             sim=cos_sim_rescaled(swin_embedding,src_swin_embedding,True)
             return sim
+        
 
     if use_proto_gan:
         proto_discriminator=Discriminator(64,3,height,1)
@@ -360,7 +364,17 @@ def evaluate_one_sample(
     clip_model=CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
 
     
-    
+    def semantic_reward(image:Image.Image,semantic_method:str,image_mask:torch.Tensor=None):
+
+        if semantic_method=="swin":
+            if semantic_matching_strategy==NEAREST_NEIGHBORS:
+                image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
+                similarity=0.0
+                valid_pixels = np.argwhere(image_mask == 0)
+                sampled_indices = random.sample(list(valid_pixels), semantic_matching_points)
+
+            
+
     
 
     def get_reward_fn():
@@ -386,7 +400,10 @@ def evaluate_one_sample(
                 time_factor=float(epoch)/float(total_steps)
 
             removed_images=images
-            if remove_background_flag:
+            if  semantic_matching:
+                images_and_masks=[remove_background_birefnet(image,birefnet,return_mask=True) for image in images]
+                removed_images=[r[0] for r in images_and_masks]
+            elif remove_background_flag:
                 removed_images=[remove_background_birefnet(image,birefnet) for image in images]
 
             if use_vit_content or use_vit_style or use_vit_distance:
