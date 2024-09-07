@@ -368,9 +368,9 @@ def main(args):
                                                                 args.semantic_matching,
                                                                 args.semantic_matching_points,
                                                                 args.semantic_matching_strategy,
-                                                                args.use_swin,
-                                                                args.initial_swin_weight,
-                                                                args.final_swin_weight,
+                                                                args.use_dift,
+                                                                args.initial_dift_weight,
+                                                                args.final_dift_weight,
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
