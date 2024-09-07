@@ -82,6 +82,7 @@ parser.add_argument("--contrastive_cluster_size",type=int,default=4)
 parser.add_argument("--contrastive_n_clusters",type=int,default=4)
 parser.add_argument("--contrastive_steps_per_epoch",type=int,default=16)
 parser.add_argument("--contrastive_margin",type=float,default=2.0)
+parser.add_argument("--contrastive_start_epoch",type=int,default=150)
 
 
 
@@ -167,7 +168,7 @@ def main(args):
     # Start the training process
     print(f"Start training for {args.epochs} epochs")
     for e in range(args.start_epoch,args.epochs+1):
-        contrastive_weight=args.contrastive_weight*(e/args.epochs)
+        contrastive_weight=args.contrastive_weight*((e-args.contrastive_start_epoch)/args.epochs)
         loss_list=[]
         start_time=time.time()
         for data_iter_step,batch in enumerate(batched_data):
