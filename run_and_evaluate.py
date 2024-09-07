@@ -389,7 +389,7 @@ def evaluate_one_sample(
     clip_model=CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
 
     @torch.no_grad()
-    def semantic_reward(image:Image.Image,semantic_method:str,image_mask:torch.Tensor=None):
+    def semantic_reward(image:Image.Image,semantic_method:str):
 
         
         if semantic_matching_strategy==NEAREST_NEIGHBORS:
@@ -397,16 +397,24 @@ def evaluate_one_sample(
             
             if semantic_method=="swin":
                 #image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
-                image_mask=np.array(image.resize(raw_swin_size).convert("L"))
+                #image_mask=np.array(image.resize(raw_swin_size).convert("L"))
+                resize_dim=raw_swin_size
                 swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
                 swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
                 swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
-                embedding_raw = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0).cpu().detach()
-                src_embedding_raw=src_swin_embedding_raw
+                image_ft = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0).cpu().detach()
+                src_image_ft=src_swin_embedding_raw
+            elif semantic_method=="dift":
+                resize_dim=dift_size
+                image_tensor=PILToTensor()(image)
+                image_tensor=rescale_around_zero(image_tensor)
+                image_ft=sd_featurizer.forward(image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
+                src_image_ft=src_dift_ft
+            image_mask=np.array(image.resize(resize_dim).convert("L"))
             valid_pixels = np.argwhere(image_mask != 0)
             sampled_indices = random.sample(list(valid_pixels), min(semantic_matching_points,len(valid_pixels)))
             for (x,y) in sampled_indices:
-                [_,sim]=nearest(embedding_raw, src_embedding_raw,x,y)
+                [_,sim]=nearest(image_ft, src_image_ft,x,y)
                 similarity+=sim
             return similarity/semantic_matching_points
 
@@ -435,16 +443,14 @@ def evaluate_one_sample(
             dream_similarities=[0.0 for _ in images]
             swin_similarities=[0.0 for _ in images]
             proto_gan_scores=[0.0 for _ in images]
+            dift_scores=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
             if method_name==DPOK:
                 total_steps=max_train_steps//p_step
                 time_factor=float(epoch)/float(total_steps)
 
             removed_images=images
-            if  semantic_matching:
-                images_and_masks=[remove_background_birefnet(image,birefnet,return_mask=True) for image in images]
-                removed_images=[r[0] for r in images_and_masks]
-            elif remove_background_flag:
+            if  semantic_matching or remove_background_flag:
                 removed_images=[remove_background_birefnet(image,birefnet) for image in images]
             print(removed_images)
             if use_vit_content or use_vit_style or use_vit_distance:
@@ -482,7 +488,7 @@ def evaluate_one_sample(
                 swin_weight=initial_swin_weight+ ((final_swin_weight-initial_swin_weight)* time_factor)
                 if semantic_matching:
                     swin_similarities=[
-                    swin_weight * semantic_reward(image,"swin",mask) for image,mask in images_and_masks
+                    swin_weight * semantic_reward(image,"swin") for image in removed_images
                     ]
                 else:
                     swin_similarities=[
@@ -630,14 +636,25 @@ def evaluate_one_sample(
                     })
                 except:
                     pass
+            if use_dift:
+                dift_weight=initial_dift_weight+((final_dift_weight-initial_dift_weight)* time_factor)
+                dift_scores=[
+                    dift_weight * semantic_reward(image, "dift") for image in removed_images
+                ]
+                try:
+                    accelerator.log({
+                        "dift_score": np.mean(dift_weight)
+                    })
+                except:
+                    pass
                 
 
 
             rewards=[
-                d+f+s+vs+vc+m+fas+drm+fps+ppb+ssw+pgs for d,f,s,vs,vc,m,fas,drm,fps,ppb,ssw,pgs in zip(vit_similarities,face_similarities,
+                d+f+s+vs+vc+m+fas+drm+fps+ppb+ssw+pgs+dfs for d,f,s,vs,vc,m,fas,drm,fps,ppb,ssw,pgs,dfs in zip(vit_similarities,face_similarities,
                                                        scores,style_similarities, content_similarities,
                                                        mse_distances,fashion_similarities,dream_similarities,face_probabilities
-                                                       ,pose_probabilities,swin_similarities,proto_gan_scores)
+                                                       ,pose_probabilities,swin_similarities,proto_gan_scores,dift_scores)
             ]
             try:
                 rewards=[r.detach().cpu().numpy() for r in rewards]
