@@ -330,6 +330,8 @@ def evaluate_one_sample(
             loss= F.mse_loss(image_tensor, src_image_tensor,reduction="mean")
         torch.cuda.empty_cache()
         return loss.detach().cpu().numpy()
+    
+    
 
 
 
@@ -379,15 +381,19 @@ def evaluate_one_sample(
         
         if semantic_matching_strategy==NEAREST_NEIGHBORS:
             similarity=0.0
-            valid_pixels = np.argwhere(image_mask == 0)
-            sampled_indices = random.sample(list(valid_pixels), semantic_matching_points)
+            
             if semantic_method=="swin":
-                image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
+                #image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
+                image_mask=np.array(image.resize(raw_swin_size).convert("L"))
                 swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
                 swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
                 swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
                 embedding_raw = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0)
                 src_embedding_raw=src_swin_embedding_raw
+            print('image_mask',image_mask)
+            valid_pixels = np.argwhere(image_mask != 0)
+            print("valid_pixels",valid_pixels)
+            sampled_indices = random.sample(list(valid_pixels), semantic_matching_points)
             for (x,y) in sampled_indices:
                 [_,sim]=nearest(embedding_raw, src_embedding_raw,x,y)
                 similarity+=sim
