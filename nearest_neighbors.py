@@ -20,11 +20,14 @@ def nearest(ft_src:Union[torch.Tensor, np.ndarray,Image.Image],ft_target:Union[t
         ft_target=np.array(ft_target)
         ft_target = np.transpose(ft_target, (2, 1, 0))
     src_feature_vector=ft_src[:,x,y]
-    if type(ft_target)==torch.tensor:
+    if type(ft_target)==torch.Tensor:
         (C,W,H)=ft_target.size()
     elif type(ft_target)==np.ndarray:
         
         (C,W,H)=ft_target.shape
+    print("nearest neighbors types")
+    print(type(ft_src))
+    print(type(ft_target))
     max_sim=-99999
     max_x=0
     max_y=0
