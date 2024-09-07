@@ -25,9 +25,6 @@ def nearest(ft_src:Union[torch.Tensor, np.ndarray,Image.Image],ft_target:Union[t
     elif type(ft_target)==np.ndarray:
         
         (C,W,H)=ft_target.shape
-    print("nearest neighbors types")
-    print(type(ft_src))
-    print(type(ft_target))
     max_sim=-99999
     max_x=0
     max_y=0
