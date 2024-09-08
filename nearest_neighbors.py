@@ -5,6 +5,16 @@ import numpy as np
 from PIL import Image
 from scipy.linalg import norm
 
+def cos_sim_rescaled(vector_i,vector_j,return_np=False):
+    cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+    try:
+        result= cos(vector_i,vector_j) *0.5 +0.5
+    except TypeError:
+        result= cos(torch.tensor(vector_i),torch.tensor(vector_j)) *0.5 +0.5
+    if return_np:
+        return result.detach().cpu().numpy()
+    return result
+
 def nearest(ft_src:Union[torch.Tensor, np.ndarray,Image.Image],ft_target:Union[torch.Tensor, np.ndarray,Image.Image],x:int,y:int)->list:
     '''
     ft_src= (c,h,w)
@@ -31,7 +41,7 @@ def nearest(ft_src:Union[torch.Tensor, np.ndarray,Image.Image],ft_target:Union[t
     for i in range(W):
         for j in range(H):
             target_feature_vector=ft_target[:,i,j]
-            sim=np.dot(target_feature_vector, src_feature_vector)
+            sim=cos_sim_rescaled(src_feature_vector,target_feature_vector)
             if sim>max_sim:
                 max_sim=sim
                 max_x=i

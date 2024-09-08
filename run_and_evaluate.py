@@ -65,20 +65,10 @@ from controlnet_test import OpenposeDetectorResize
 from classifier_guidance import classifier_call
 from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
 from einops import rearrange
-from nearest_neighbors import nearest
+from nearest_neighbors import nearest,cos_sim_rescaled
 from dift.src.models.dift_sd import SDFeaturizer
 
 torch.autograd.set_detect_anomaly(True)
-
-def cos_sim_rescaled(vector_i,vector_j,return_np=False):
-    cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-    try:
-        result= cos(vector_i,vector_j) *0.5 +0.5
-    except TypeError:
-        result= cos(torch.tensor(vector_i),torch.tensor(vector_j)) *0.5 +0.5
-    if return_np:
-        return result.detach().cpu().numpy()
-    return result
 
 def center_crop_to_min_dimension_and_resize(image:Image)->Image:
     width, height = image.size
