@@ -41,7 +41,7 @@ def nearest(ft_src:Union[torch.Tensor, np.ndarray,Image.Image],ft_target:Union[t
     for i in range(W):
         for j in range(H):
             target_feature_vector=ft_target[:,i,j]
-            sim=cos_sim_rescaled(src_feature_vector,target_feature_vector)
+            sim=cos_sim_rescaled(src_feature_vector,target_feature_vector).item()
             if sim>max_sim:
                 max_sim=sim
                 max_x=i
