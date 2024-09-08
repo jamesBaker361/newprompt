@@ -83,6 +83,7 @@ parser.add_argument("--contrastive_n_clusters",type=int,default=4)
 parser.add_argument("--contrastive_steps_per_epoch",type=int,default=16)
 parser.add_argument("--contrastive_margin",type=float,default=2.0)
 parser.add_argument("--contrastive_start_epoch",type=int,default=150)
+parser.add_argument("--adjust_lr",action="store_true")
 
 
 
@@ -174,7 +175,7 @@ def main(args):
         for data_iter_step,batch in enumerate(batched_data):
             optimizer.zero_grad()
             batch=batch.to(device)
-            if data_iter_step % args.accum_iter == 0:
+            if data_iter_step % args.accum_iter == 0 and args.adjust_lr:
                 adjust_learning_rate(optimizer, data_iter_step / len(batched_data) + e, args)
             
             loss, _, _ = model(batch)
