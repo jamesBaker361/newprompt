@@ -197,6 +197,7 @@ def evaluate_one_sample(
     method_name=method_name.strip()
     #src_image=center_crop_to_min_dimension_and_resize(src_image)
     
+    
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
     removed_src,mask=remove_background_birefnet(src_image,birefnet,return_mask=True)
     if remove_background_flag==False:
@@ -274,7 +275,8 @@ def evaluate_one_sample(
         print(src_swin_embedding_raw.size())
         raw_swin_size=src_swin_embedding_raw.size()[-2:]
         print('raw_swin_size',raw_swin_size)
-        swin_mask =F.interpolate(mask,size=raw_swin_size,mode="nearest")
+        image_mask=np.array(src_image.resize(raw_swin_size).convert("L"))
+        valid_pixels = np.argwhere(image_mask != 0)
         
         src_swin_embedding=torch.flatten(src_swin_embedding_raw)
         src_swin_embedding_raw=src_swin_embedding_raw.squeeze(0)
@@ -294,6 +296,8 @@ def evaluate_one_sample(
         print("src_dift_ft size",src_dift_ft.size())
         dift_size=src_dift_ft.size()[-2:]
         print("dift_size ",dift_size)
+        image_mask=np.array(src_image.resize(dift_size).convert("L"))
+        valid_pixels = np.argwhere(image_mask != 0)
 
 
     if use_proto_gan:
@@ -400,8 +404,7 @@ def evaluate_one_sample(
                 image_tensor=rescale_around_zero(image_tensor)
                 image_ft=sd_featurizer.forward(image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
                 src_image_ft=src_dift_ft
-            image_mask=np.array(image.resize(resize_dim).convert("L"))
-            valid_pixels = np.argwhere(image_mask != 0)
+            
             sampled_indices = random.sample(list(valid_pixels), min(semantic_matching_points,len(valid_pixels)))
             for (x,y) in sampled_indices:
                 [_,sim]=nearest(image_ft, src_image_ft,x,y)
