@@ -407,7 +407,7 @@ def evaluate_one_sample(
             
             sampled_indices = random.sample(list(valid_pixels), min(semantic_matching_points,len(valid_pixels)))
             for (x,y) in sampled_indices:
-                [_,sim]=nearest(image_ft, src_image_ft,x,y)
+                [_,sim]=nearest(src_image_ft, image_ft,x,y)
                 similarity+=sim
             return similarity/semantic_matching_points
 
