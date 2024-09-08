@@ -18,6 +18,7 @@ from huggingface_hub import (
     model_info,
     snapshot_download,
 )
+import json
 from huggingface_hub.utils import OfflineModeIsEnabled, validate_hf_hub_args
 from packaging import version
 from requests.exceptions import HTTPError
@@ -26,6 +27,8 @@ import requests
 import fnmatch
 from pathlib import Path
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+
+from diffusers import pipelines
 
 from diffusers.configuration_utils import ConfigMixin
 from diffusers.models import AutoencoderKL
@@ -379,17 +382,59 @@ class OneStepSDPipeline(StableDiffusionPipeline):
                 resume_download=resume_download,
                 token=token,
             )
-            with open(config_file, "r") as file:
-                lines = file.readlines()
+            
 
-            # Remove the last line
-            lines = lines[:-1]
+            print("config_file is ",config_file)
+            try:
+                config_dict = cls._dict_from_json_file(config_file)
+            except json.decoder.JSONDecodeError:
+                with open(config_file, 'r') as file:
+                    lines = file.readlines()
 
-            # Write the remaining lines back to the file
-            with open(config_file, "w") as file:
-                file.writelines(lines)
+                # Strip all whitespace from each line
+                stripped_lines = [line.strip().replace(' ', '').replace("\n","") for line in lines]
+                print(stripped_lines)
 
-            config_dict = cls._dict_from_json_file(config_file)
+                # Write the modified lines back to the file
+                with open(config_file, 'w') as file:
+                    file.write("".join(stripped_lines))
+                try:
+                    config_dict = cls._dict_from_json_file(config_file)
+                except:
+                    config_dict={
+                        "_class_name": "StableDiffusionPipeline",
+                        "_diffusers_version": "0.8.0",
+                        "feature_extractor": [
+                            "transformers",
+                            "CLIPImageProcessor"
+                        ],
+                        "requires_safety_checker": False,
+                        "safety_checker": [
+                            None,
+                            None
+                        ],
+                        "scheduler": [
+                            "diffusers",
+                            "DDIMScheduler"
+                        ],
+                        "text_encoder": [
+                            "transformers",
+                            "CLIPTextModel"
+                        ],
+                        "tokenizer": [
+                            "transformers",
+                            "CLIPTokenizer"
+                        ],
+                        "unet": [
+                            "diffusers",
+                            "UNet2DConditionModel"
+                        ],
+                        "vae": [
+                            "diffusers",
+                            "AutoencoderKL"
+                        ]
+                        }
+
             ignore_filenames = config_dict.pop("_ignore_files", [])
 
             # retrieve all folder_names that contain relevant files
@@ -398,8 +443,7 @@ class OneStepSDPipeline(StableDiffusionPipeline):
             filenames = {sibling.rfilename for sibling in info.siblings}
             model_filenames, variant_filenames = variant_compatible_siblings(filenames, variant=variant)
 
-            diffusers_module = importlib.import_module(__name__.split(".")[0])
-            pipelines = getattr(diffusers_module, "pipelines")
+            
 
             # optionally create a custom component <> custom file mapping
             custom_components = {}
@@ -636,8 +680,8 @@ class SDFeaturizer:
         gc.collect()
         onestep_pipe = onestep_pipe.to("cuda")
         onestep_pipe.enable_attention_slicing()
-        onestep_pipe.enable_xformers_memory_efficient_attention()
-        null_prompt_embeds = onestep_pipe._encode_prompt(
+        #onestep_pipe.enable_xformers_memory_efficient_attention()
+        null_prompt_embeds,_ = onestep_pipe.encode_prompt(
             prompt=null_prompt,
             device='cuda',
             num_images_per_prompt=1,
@@ -668,7 +712,7 @@ class SDFeaturizer:
         if prompt == self.null_prompt:
             prompt_embeds = self.null_prompt_embeds
         else:
-            prompt_embeds = self.pipe._encode_prompt(
+            prompt_embeds,_ = self.pipe.encode_prompt(
                 prompt=prompt,
                 device='cuda',
                 num_images_per_prompt=1,
