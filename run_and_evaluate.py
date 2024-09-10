@@ -202,8 +202,8 @@ def evaluate_one_sample(
     draw = ImageDraw.Draw(copy_image)
     pose_result=get_poseresult(detector, src_image,H,False,True)
     interm_points=intermediate_points_body(pose_result.body.keypoints,2)
-    pose_src_points=interm_points+pose_result.body.keypoints
-    for k in pose_src_points:
+    pose_src_keypoint_list=interm_points+pose_result.body.keypoints
+    for k in pose_src_keypoint_list:
         if k is not None:
             x=k.x*H
             y=k.y*W
@@ -227,6 +227,8 @@ def evaluate_one_sample(
             accelerator.log({
                 "pose":wandb.Image("temp.png")
             })
+
+    openpose_valid_pixels=[(int(k.x*H), int(k.y*W)) for k in pose_src_keypoint_list if k is not None]
     
     
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
@@ -416,37 +418,33 @@ def evaluate_one_sample(
     @torch.no_grad()
     def semantic_reward(image:Image.Image,semantic_method:str):
 
+        similarity=0.0
         
+        if semantic_method=="swin":
+            #image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
+            #image_mask=np.array(image.resize(raw_swin_size).convert("L"))
+            resize_dim=raw_swin_size
+            swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
+            swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
+            swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
+            image_ft = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0).cpu().detach()
+            src_image_ft=src_swin_embedding_raw
+        elif semantic_method=="dift":
+            resize_dim=dift_size
+            image_tensor=PILToTensor()(image)
+            image_tensor=rescale_around_zero(image_tensor)
+            image_ft=sd_featurizer.forward(image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
+            src_image_ft=src_dift_ft
+
         if semantic_matching_strategy==NEAREST_NEIGHBORS:
-            similarity=0.0
-            
-            if semantic_method=="swin":
-                #image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
-                #image_mask=np.array(image.resize(raw_swin_size).convert("L"))
-                resize_dim=raw_swin_size
-                swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
-                swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
-                swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
-                image_ft = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0).cpu().detach()
-                src_image_ft=src_swin_embedding_raw
-            elif semantic_method=="dift":
-                resize_dim=dift_size
-                image_tensor=PILToTensor()(image)
-                image_tensor=rescale_around_zero(image_tensor)
-                image_ft=sd_featurizer.forward(image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
-                src_image_ft=src_dift_ft
-            
             sampled_indices = random.sample(list(valid_pixels), min(semantic_matching_points,len(valid_pixels)))
-            for (x,y) in sampled_indices:
-                [_,sim]=nearest(src_image_ft, image_ft,x,y)
-                similarity+=sim
-            return similarity/semantic_matching_points
+        elif semantic_matching_strategy==OPENPOSE_POINTS:
+            sampled_indices=openpose_valid_pixels
 
-            
-            
-
-
-            
+        for (x,y) in sampled_indices:
+            [_,sim]=nearest(src_image_ft, image_ft,x,y)
+            similarity+=sim
+        return similarity/semantic_matching_points
 
     
 
