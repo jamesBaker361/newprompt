@@ -2,10 +2,10 @@ from controlnet_aux import OpenposeDetector
 from controlnet_aux.util import HWC3,resize_image
 from controlnet_aux.open_pose.util import draw_bodypose
 from controlnet_aux.open_pose.body import Keypoint
-from controlnet_aux.open_pose import PoseResult
-from typing import List
+from controlnet_aux.open_pose import PoseResult,BodyResult
+from typing import List,Union
 import numpy as np
-from PIL import Image
+from PIL import Image,ImageDraw
 import cv2
 
 def normalize_keypoints(keypoints: List[Keypoint]) -> List[Keypoint]:
@@ -111,16 +111,100 @@ class OpenposeDetectorResize(OpenposeDetector):
             include_face=True
             )->List[PoseResult]:
         if not isinstance(image, np.ndarray):
-            proportion_image = np.array(image, dtype=np.uint8)
+            image = np.array(image, dtype=np.uint8)
 
-        proportion_image = HWC3(proportion_image)
-        proportion_image = resize_image(proportion_image, detect_resolution)
+        image = HWC3(image)
+        image = resize_image(image, detect_resolution)
 
-        return self.detect_poses(proportion_image, include_hand, include_face)
+        return self.detect_poses(image, include_hand, include_face)
     
+def intermediate_points_body(keypoints:List[Union[Keypoint, None]],n_points=1)->List[Keypoint]:
+    limbSeq = [
+        [2, 3], [2, 6], [3, 4], [4, 5], 
+        [6, 7], [7, 8], [2, 9], [9, 10], 
+        [10, 11], [2, 12], [12, 13], [13, 14], 
+        [2, 1], [1, 15], [15, 17], [1, 16], 
+        [16, 18],
+    ]
+    new_points=[]
+    for (k1_index, k2_index) in limbSeq:
+        keypoint1 = keypoints[k1_index - 1]
+        keypoint2 = keypoints[k2_index - 1]
+
+        if keypoint1 is None or keypoint2 is None:
+            continue
+
+        total_x_dist=keypoint2.x-keypoint1.x
+        total_y_dist=keypoint2.y-keypoint1.y
+
+        step_size_x=total_x_dist/(n_points+1)
+        step_size_y=total_y_dist/(n_points+1)
+
+        for i in range(1,1+n_points):
+            new_points.append(Keypoint(keypoint1.x+i*step_size_x,keypoint1.y+i*step_size_y))
+    
+    return new_points
+
 if __name__=='__main__':
-    src=Image.open("percy.jpg")
-    detector=OpenposeDetectorResize.from_pretrained('lllyasviel/ControlNet')
-    points=detector.get_points(src)
-    print(points)
-    print(type(points))
+    for n in [1,2,3]:
+        src=Image.open("percy.jpg")
+        draw = ImageDraw.Draw(src)
+        print(src.size)
+        H,W=src.size
+        detector=OpenposeDetectorResize.from_pretrained('lllyasviel/ControlNet')
+        points=detector.get_points(src)
+        print(len(points))
+        for i,k in enumerate(points[0].body.keypoints):
+            if k is not None:
+                
+                x=k.x*H
+                y=k.y*W
+                radius = 4
+
+                print(x,y)
+
+                # Draw a small red circle
+                draw.ellipse(
+                    (x - radius, y - radius, 
+                    x+ radius, y+ radius), 
+                    fill='red', outline='red'
+                )
+            else:
+                print(f"point at index {i} is none")
+
+        
+
+        for kp in intermediate_points_body(points[0].body.keypoints,n_points=n):
+            break
+            x=kp.x*H
+            y=kp.y*W
+            radius = 4
+
+            print(x,y)
+
+            # Draw a small red circle
+            draw.ellipse(
+                (x - radius, y - radius, 
+                x+ radius, y+ radius), 
+                fill='purple', outline='purple'
+            )
+
+        for i,k in enumerate(points[0].face):
+            if k is not None:
+                
+                x=k.x*H
+                y=k.y*W
+                radius = 1
+
+                print(x,y)
+
+                # Draw a small red circle
+                draw.ellipse(
+                    (x - radius, y - radius, 
+                    x+ radius, y+ radius), 
+                    fill='green', outline='green'
+                )
+            else:
+                print(f"face point at index {i} is none")
+
+        src.save(f"new_percy_{n}.jpg")
