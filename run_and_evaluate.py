@@ -202,7 +202,8 @@ def evaluate_one_sample(
     draw = ImageDraw.Draw(copy_image)
     pose_result=get_poseresult(detector, src_image,H,False,True)
     interm_points=intermediate_points_body(pose_result.body.keypoints,2)
-    for k in interm_points+pose_result.body.keypoints:
+    pose_src_points=interm_points+pose_result.body.keypoints
+    for k in pose_src_points:
         if k is not None:
             x=k.x*H
             y=k.y*W
