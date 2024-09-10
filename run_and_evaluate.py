@@ -18,7 +18,7 @@ from insightface.app import FaceAnalysis
 from diffusers import UNet2DConditionModel
 from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, StableDiffusionPipeline
 from transformers import Blip2Processor, Blip2ForConditionalGeneration
-from PIL import Image,UnidentifiedImageError
+from PIL import Image,UnidentifiedImageError,ImageDraw
 import wandb
 import ImageReward as image_reward
 reward_cache="/scratch/jlb638/ImageReward"
@@ -67,6 +67,7 @@ from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiff
 from einops import rearrange
 from nearest_neighbors import nearest,cos_sim_rescaled
 from dift.src.models.dift_sd import SDFeaturizer
+from pose_helpers import get_poseresult,intermediate_points_body
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -196,6 +197,35 @@ def evaluate_one_sample(
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
     #src_image=center_crop_to_min_dimension_and_resize(src_image)
+    H,W=src_image.size
+    copy_image=src_image.copy()
+    draw = ImageDraw.Draw(copy_image)
+    pose_result=get_poseresult(detector, src_image,H,False,True)
+    interm_points=intermediate_points_body(pose_result.body.keypoints,2)
+    for k in interm_points+pose_result.body.keypoints:
+        if k is not None:
+            x=k.x*H
+            y=k.y*W
+            radius = 4
+            draw.ellipse(
+                    (x - radius, y - radius, 
+                    x+ radius, y+ radius), 
+                    fill='red', outline='red'
+                )
+    try:
+        accelerator.log({
+            "pose":copy_image
+        })
+    except:
+        try:
+            accelerator.log({
+            "pose":wandb.Image(copy_image)
+            })
+        except:
+            copy_image.save("temp.png")
+            accelerator.log({
+                "pose":wandb.Image("temp.png")
+            })
     
     
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
