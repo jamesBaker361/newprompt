@@ -104,19 +104,19 @@ class OpenposeDetectorResize(OpenposeDetector):
         return detected_map
     
 
-    def get_points(self,
-            image:np.ndarray,
-            detect_resolution=512,
-            include_hand=False,
-            include_face=True
-            )->List[PoseResult]:
-        if not isinstance(image, np.ndarray):
-            image = np.array(image, dtype=np.uint8)
+def get_poseresult(self:OpenposeDetector,
+        image:np.ndarray,
+        detect_resolution=512,
+        include_hand=False,
+        include_face=True
+        )->PoseResult:
+    if not isinstance(image, np.ndarray):
+        image = np.array(image, dtype=np.uint8)
 
-        image = HWC3(image)
-        image = resize_image(image, detect_resolution)
+    image = HWC3(image)
+    image = resize_image(image, detect_resolution)
 
-        return self.detect_poses(image, include_hand, include_face)
+    return self.detect_poses(image, include_hand, include_face)[0]
     
 def intermediate_points_body(keypoints:List[Union[Keypoint, None]],n_points=1)->List[Keypoint]:
     limbSeq = [
