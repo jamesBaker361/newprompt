@@ -228,7 +228,7 @@ def evaluate_one_sample(
                 "pose":wandb.Image("temp.png")
             })
 
-    openpose_valid_pixels=[(int(k.x*H)//32, int(k.y*W)//32) for k in pose_src_keypoint_list if k is not None]
+    
     
     
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
@@ -331,6 +331,7 @@ def evaluate_one_sample(
         print("dift_size ",dift_size)
         image_mask=np.array(src_image.resize(dift_size).convert("L"))
         valid_pixels = np.argwhere(image_mask != 0)
+        openpose_valid_pixels=[(int(k.x*H)//32, int(k.y*W)//32) for k in pose_src_keypoint_list if k is not None]
 
 
     if use_proto_gan:
