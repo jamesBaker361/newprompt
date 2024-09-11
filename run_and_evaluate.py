@@ -228,7 +228,7 @@ def evaluate_one_sample(
                 "pose":wandb.Image("temp.png")
             })
 
-    openpose_valid_pixels=[(int(k.x*H), int(k.y*W)) for k in pose_src_keypoint_list if k is not None]
+    openpose_valid_pixels=[(int(k.x*H)//32, int(k.y*W)//32) for k in pose_src_keypoint_list if k is not None]
     
     
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
@@ -323,9 +323,9 @@ def evaluate_one_sample(
         
     if use_dift:
         sd_featurizer=SDFeaturizer(dift_model)
-        src_image_tensor=PILToTensor()(removed_src)
+        src_image_tensor=PILToTensor()(removed_src.resize((1024,1024)))
         src_image_tensor=rescale_around_zero(src_image_tensor)
-        src_dift_ft=sd_featurizer.forward(src_image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
+        src_dift_ft=sd_featurizer.forward(src_image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=1).squeeze(0).cpu()
         print("src_dift_ft size",src_dift_ft.size())
         dift_size=src_dift_ft.size()[-2:]
         print("dift_size ",dift_size)
@@ -431,9 +431,9 @@ def evaluate_one_sample(
             src_image_ft=src_swin_embedding_raw
         elif semantic_method=="dift":
             resize_dim=dift_size
-            image_tensor=PILToTensor()(image)
+            image_tensor=PILToTensor()(image.resize((1024,1024)))
             image_tensor=rescale_around_zero(image_tensor)
-            image_ft=sd_featurizer.forward(image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=4).squeeze(0).cpu()
+            image_ft=sd_featurizer.forward(image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=1).squeeze(0).cpu()
             src_image_ft=src_dift_ft
 
         if semantic_matching_strategy==NEAREST_NEIGHBORS:
