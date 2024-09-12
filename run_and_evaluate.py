@@ -461,22 +461,25 @@ def evaluate_one_sample(
     interm_points=intermediate_points_body(pose_result.body.keypoints,2)
     pose_src_keypoint_list=interm_points+pose_result.body.keypoints
             '''
-            gen_pose_result=get_poseresult(detector,image,H,False,True)
-            gen_interm_points=intermediate_points_body(gen_pose_result.body.keypoints,2)
-            gen_pose_src_keypoint_list=gen_interm_points+gen_pose_result.body.keypoints
+            try:
+                gen_pose_result=get_poseresult(detector,image,H,False,True)
+                gen_interm_points=intermediate_points_body(gen_pose_result.body.keypoints,2)
+                gen_pose_src_keypoint_list=gen_interm_points+gen_pose_result.body.keypoints
 
-            draw_points(gen_pose_src_keypoint_list,image,"pose_gen")
+                draw_points(gen_pose_src_keypoint_list,image,"pose_gen")
 
-            gen_keypoint_dict=get_keypoint_dict(gen_pose_src_keypoint_list,rescale)
+                gen_keypoint_dict=get_keypoint_dict(gen_pose_src_keypoint_list,rescale)
 
-            for k in keypoint_dict.keys():
-                if k in gen_keypoint_dict:
-                    (src_x,src_y)=keypoint_dict[k]
-                    (target_x,target_y)=gen_keypoint_dict[k]
-                    src_vector=src_image_ft[:,src_x,src_y]
-                    target_vector=image_ft[:, target_x,target_y]
-                    sim=cos_sim_rescaled(src_vector,target_vector)
-                    similarity+=sim
+                for k in keypoint_dict.keys():
+                    if k in gen_keypoint_dict:
+                        (src_x,src_y)=keypoint_dict[k]
+                        (target_x,target_y)=gen_keypoint_dict[k]
+                        src_vector=src_image_ft[:,src_x,src_y]
+                        target_vector=image_ft[:, target_x,target_y]
+                        sim=cos_sim_rescaled(src_vector,target_vector)
+                        similarity+=sim
+            except:
+                return 0
                     
 
         
