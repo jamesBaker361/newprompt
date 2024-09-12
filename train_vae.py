@@ -20,8 +20,8 @@ parser=argparse.ArgumentParser()
 
 parser.add_argument("--mixed_precision",type=str,default="no")
 parser.add_argument("--project_name",type=str,default="pretrain_vae")
-parser.add_argument("--save_dir",type=str,default="/scratch/jlb638/experiments/")
-parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/experiment_images/")
+parser.add_argument("--save_dir",type=str,default="/scratch/jlb638/vae/")
+parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/vae_images/")
 parser.add_argument("--hf_repo",type=str,default="jlbaker361/league_vae")
 parser.add_argument("--save_interval",type=int,default=5)
 parser.add_argument("--load_saved",action="store_true")
@@ -47,7 +47,7 @@ def tensor_to_pil(tensor:torch.Tensor)->Image.Image:
 def main(args):
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
-    image_list=[row["image"] for row in load_dataset(args.dataset,split="train")]
+    image_list=[row["image"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
     data=[pil_to_tensor_process(img) for img in image_list]
     batched_data=[]
     for j in range(0,len(data),args.batch_size):
