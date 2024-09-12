@@ -127,7 +127,7 @@ def intermediate_points_body(keypoints:List[Union[Keypoint, None]],n_points=1)->
         [16, 18],
     ]
     new_points=[]
-    for (k1_index, k2_index) in limbSeq:
+    for z,(k1_index, k2_index) in enumerate(limbSeq):
         keypoint1 = keypoints[k1_index - 1]
         keypoint2 = keypoints[k2_index - 1]
 
@@ -140,8 +140,10 @@ def intermediate_points_body(keypoints:List[Union[Keypoint, None]],n_points=1)->
         step_size_x=total_x_dist/(n_points+1)
         step_size_y=total_y_dist/(n_points+1)
 
+        index=100+(10*z)
+
         for i in range(1,1+n_points):
-            new_points.append(Keypoint(keypoint1.x+i*step_size_x,keypoint1.y+i*step_size_y))
+            new_points.append(Keypoint(keypoint1.x+i*step_size_x,keypoint1.y+i*step_size_y,id=index+i))
     
     return new_points
 
