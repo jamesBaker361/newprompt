@@ -94,7 +94,7 @@ def main(args):
             "loss":np.mean(loss_list)
         })
         encoded_fixed=vae.encode(fixed_images).latent_dist.sample()
-        decoded_fixed=vae.decode(encoded_fixed,return_dict=False)
+        decoded_fixed=vae.decode(encoded_fixed).sample
 
         images=[tensor_to_pil(t) for t in decoded_fixed]
 
