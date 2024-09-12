@@ -11,7 +11,9 @@ from datasets import load_dataset
 import torch
 import shutil
 from static_globals import *
+from peft.utils import get_peft_model_state_dict
 import wandb
+from peft import LoraConfig
 
 parser=argparse.ArgumentParser()
 
@@ -29,7 +31,9 @@ parser.add_argument("--hf_repo",type=str,default="jlbaker361/league_unet")
 parser.add_argument("--pretrained_vae",action="store_true")
 parser.add_argument("--vae_id",type=str,default="jlbaker361/league_vae_25")
 parser.add_argument("--resize",type=int,default=512)
-
+parser.add_argument("--lora_r", default=16, type=int)
+parser.add_argument("--lora_alpha", default=32, type=int)
+parser.add_argument("--lora_target_modules", default=["to_q", "to_k", "to_v"], type=str, nargs="+")
 
 
 
@@ -42,9 +46,18 @@ def main(args):
         vae_weight_path = hf_hub_download(repo_id=args.vae_id, filename="vae/diffusion_pytorch_model.safetensors")
         load_model(pipeline.vae,vae_weight_path)
 
-    pipeline=pipeline.to(accelerator.device)
+    #pipeline=pipeline.to(accelerator.device)
     for model in [pipeline.vae, pipeline.text_encoder]:
         model.eval()
+    if args.use_lora:
+        lora_config = LoraConfig(
+            r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            target_modules=args.lora_target_modules,
+        )
+        model.add_adapter(lora_config)
+    pipeline.unet=pipeline.unet.to(accelerator.device)
+    pipeline.vae=pipeline.vae.to(accelerator.device)
     pipeline.unet.train()
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
@@ -65,6 +78,8 @@ def main(args):
                         0.0,
                         True
                         )
+    unet_lora_layers = get_peft_model_state_dict(pipeline.unet)
+    pipeline.save_lora_weights(args.save_dir,unet_lora_layers)
     pipeline.save_pretrained(args.save_dir, push_to_hub=True, repo_id=args.hf_repo)
     evaluation_prompt_list=[
         " {} ",
