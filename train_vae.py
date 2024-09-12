@@ -83,7 +83,7 @@ def main(args):
                 batch=batch.to(vae.device)
                 encoded=vae.encode(batch).latent_dist.sample()
 
-                decoded=vae.decode(encoded,return_dict=False)
+                decoded=vae.decode(encoded).sample
 
                 loss=F.mse_loss(encoded,decoded)
                 accelerator.backward(loss)
