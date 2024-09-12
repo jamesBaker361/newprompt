@@ -9,6 +9,7 @@ from safetensors.torch import load_model,save_model
 from experiment_helpers.training import train_unet
 from datasets import load_dataset
 import torch
+import shutil
 
 parser=argparse.ArgumentParser()
 
@@ -30,11 +31,12 @@ parser.add_argument("--vae_id",type=str,default="jlbaker361/league_vae_25")
 
 
 def main(args):
+    os.makedirs(args.save_dir,exist_ok=True)
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
     pipeline=StableDiffusionPipeline.from_pretrained(args.pretrained_src)
     if args.pretrained_vae:
-        vae_weight_path = hf_hub_download(repo_id=args.vae_id, filename="vae/diffusion_pytorch_model.bin")
+        vae_weight_path = hf_hub_download(repo_id=args.vae_id, filename="vae/diffusion_pytorch_model.safetensors")
         load_model(pipeline.vae,vae_weight_path)
 
     pipeline=pipeline.to(accelerator.device)
@@ -60,7 +62,38 @@ def main(args):
                         0.0,
                         True
                         )
+    pair_dict={
+      #  "tokenizer":pipeline.tokenizer,
+        "vae":pipeline.vae,
+        "unet":pipeline.unet,
+        "text_encoder":pipeline.text_encoder
+    }
+    for name,model in pair_dict.items():
+        new_dir=os.makedirs(os.path.join(args.save_dir,name),exist_ok=True)
+        file_path=os.path.join(args.save_dir,name,"diffusion_pytorch_model.safetensors")
+        save_model(model,file_path)
+
+        original_config_file=hf_hub_download(repo_id=args.pretrained_src, filename=f"{name}/config.json")
+        new_config_file_path=os.path.join(args.save_dir,name,"config.json")
+
+        shutil.copy(original_config_file,new_config_file_path)
+        
+        
     
+    #copy tokenizer files
+    for txt_file in ["merges.txt","special_tokens_map.json","tokenizer_config.json","vocab.json"]:
+        new_dir=os.makedirs(os.path.join(args.save_dir,"tokenizer"),exist_ok=True)
+        original_path=hf_hub_download(repo_id=args.pretrained_src, filename=f"tokenizer/{txt_file}")
+        new_path=os.path.join(args.save_dir,"tokenizer",txt_file)
+        shutil.copy(original_path, new_path)
+    #copy scheduler files
+    new_dir=os.makedirs(os.path.join(args.save_dir,"scheduler"),exist_ok=True)
+    scheduler_config_src=hf_hub_download(repo_id=args.pretrained_src, filename=f"scheduler/scheduler_config.json")
+    new_scheduler_config=os.path.join(args.save_dir,"scheduler","scheduler_config.json")
+    shutil.copy(scheduler_config_src,new_scheduler_config)
+                                      
+    model_index_src=hf_hub_download(repo_id=args.pretrained_src, filename=f"model_index.json")
+    new_model_index=os.path.join(args.save_dir,"model_index.json")
     return
 
 if __name__=='__main__':
