@@ -85,7 +85,7 @@ def main(args):
 
                 decoded=vae.decode(encoded).sample
 
-                loss=F.mse_loss(encoded,decoded)
+                loss=F.mse_loss(batch,decoded)
                 accelerator.backward(loss)
                 optimizer.step()
 
