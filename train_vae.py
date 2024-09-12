@@ -28,9 +28,10 @@ parser.add_argument("--save_interval",type=int,default=5)
 parser.add_argument("--load_saved",action="store_true")
 parser.add_argument("--pretrained_src",type=str,default="stabilityai/stable-diffusion-2-1")
 parser.add_argument("--dataset",type=str,default="jlbaker361/new_league_data_max_plus")
-parser.add_argument("--batch_size",type=int,default=8)
+parser.add_argument("--batch_size",type=int,default=2)
 parser.add_argument("--epochs",type=int,default=10)
 parser.add_argument("--resize",type=int,default=768)
+parser.add_argument("--gradient_accumulation_steps",type=int,default=8)
 
 def tensor_to_pil(tensor:torch.Tensor)->Image.Image:
     tensor = (tensor + 1) / 2
@@ -47,7 +48,7 @@ def tensor_to_pil(tensor:torch.Tensor)->Image.Image:
 
 def main(args):
     os.makedirs(args.save_dir,exist_ok=True)
-    accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
+    accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision,gradient_accumulation_steps=args.gradient_accumulation_steps)
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
     image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
     data=[pil_to_tensor_process(img) for img in image_list]
@@ -76,18 +77,19 @@ def main(args):
 
     for e in range(args.epochs):
         loss_list=[]
-        for step,batch in enumerate(batched_data):
-            optimizer.zero_grad()
-            batch=batch.to(vae.device)
-            encoded=vae.encode(batch).latent_dist.sample()
+        with accelerator.accumulate():
+            for step,batch in enumerate(batched_data):
+                optimizer.zero_grad()
+                batch=batch.to(vae.device)
+                encoded=vae.encode(batch).latent_dist.sample()
 
-            decoded=vae.decode(encoded,return_dict=False)
+                decoded=vae.decode(encoded,return_dict=False)
 
-            loss=F.mse_loss(encoded,decoded)
-            loss.backward()
-            optimizer.step()
+                loss=F.mse_loss(encoded,decoded)
+                accelerator.backward(loss)
+                optimizer.step()
 
-            loss_list.append(loss.item())
+                loss_list.append(loss.item())
         accelerator.log({
             "loss":np.mean(loss_list)
         })
