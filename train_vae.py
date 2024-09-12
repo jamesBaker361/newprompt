@@ -45,9 +45,10 @@ def tensor_to_pil(tensor:torch.Tensor)->Image.Image:
 
 
 def main(args):
+    os.makedirs(args.save_dir,exist_ok=True)
     accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
-    image_list=[row["image"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
+    image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
     data=[pil_to_tensor_process(img) for img in image_list]
     batched_data=[]
     for j in range(0,len(data),args.batch_size):
