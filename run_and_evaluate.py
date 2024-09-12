@@ -200,40 +200,43 @@ def evaluate_one_sample(
     method_name=method_name.strip()
     #src_image=center_crop_to_min_dimension_and_resize(src_image)
     H,W=src_image.size
-    copy_image=src_image.copy()
-    draw = ImageDraw.Draw(copy_image)
+    
     pose_result=get_poseresult(detector, src_image,H,False,True)
     interm_points=intermediate_points_body(pose_result.body.keypoints,2)
     pose_src_keypoint_list=interm_points+pose_result.body.keypoints
-    for k in pose_src_keypoint_list:
-        if k is not None:
-            x=k.x*H
-            y=k.y*W
-            radius = 4
-            draw.ellipse(
-                    (x - radius, y - radius, 
-                    x+ radius, y+ radius), 
-                    fill='red', outline='red'
-                )
-    try:
-        accelerator.log({
-            "pose":copy_image
-        })
-    except:
+    def draw_points(pose_src_keypoint_list:List[Keypoint],src_image:Image.Image):
+        copy_image=src_image.copy()
+        draw = ImageDraw.Draw(copy_image)
+        for k in pose_src_keypoint_list:
+            if k is not None:
+                x=k.x*H
+                y=k.y*W
+                radius = 4
+                draw.ellipse(
+                        (x - radius, y - radius, 
+                        x+ radius, y+ radius), 
+                        fill='red', outline='red'
+                    )
         try:
             accelerator.log({
-            "pose":wandb.Image(copy_image)
+                "pose":copy_image
             })
         except:
-            copy_image.save("temp.png")
-            accelerator.log({
-                "pose":wandb.Image("temp.png")
-            })
+            try:
+                accelerator.log({
+                "pose":wandb.Image(copy_image)
+                })
+            except:
+                copy_image.save("temp.png")
+                accelerator.log({
+                    "pose":wandb.Image("temp.png")
+                })
+    draw_points(pose_src_keypoint_list, src_image)
 
     
     def get_keypoint_dict(keypoint_list:List[Keypoint],rescale=32)->dict:
         k_dict={}
-        for keypoint in keypoint_list:
+        for k in keypoint_list:
             if k is not None:
                 k_dict[k.id]=(int(k.x*H)//rescale, int(k.y*W)//rescale)
         return k_dict
@@ -461,6 +464,7 @@ def evaluate_one_sample(
             gen_pose_result=get_poseresult(detector,image,H,False,True)
             gen_interm_points=intermediate_points_body(gen_pose_result.body.keypoints,2)
             gen_pose_src_keypoint_list=gen_interm_points+gen_pose_result.body.keypoints
+
             gen_keypoint_dict=get_keypoint_dict(gen_pose_src_keypoint_list,rescale)
 
             for k in keypoint_dict.keys():
