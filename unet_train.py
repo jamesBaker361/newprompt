@@ -55,7 +55,7 @@ def main(args):
             lora_alpha=args.lora_alpha,
             target_modules=args.lora_target_modules,
         )
-        model.add_adapter(lora_config)
+        pipeline.unet.add_adapter(lora_config)
     pipeline.unet=pipeline.unet.to(accelerator.device)
     pipeline.vae=pipeline.vae.to(accelerator.device)
     pipeline.unet.train()
