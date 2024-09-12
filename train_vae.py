@@ -61,7 +61,7 @@ def main(args):
         print("fixed range",torch.max(fixed),torch.min(fixed))
     
     vae=AutoencoderKL()
-    weight_path=hf_hub_download(repo_id=args.pretrained_src, filename="/vae/diffusion_pytorch_model.bin")
+    weight_path=hf_hub_download(repo_id=args.pretrained_src, filename="vae/diffusion_pytorch_model.bin")
     state_dict=load_file(weight_path)
 
     vae.load_state_dict(state_dict)
