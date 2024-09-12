@@ -277,6 +277,7 @@ def evaluate_one_sample(
     composed_trans = transforms.Compose(transform_list)
 
     if use_swin:
+        openpose_valid_pixels=[(int(k.x*H)//16, int(k.y*W)//16) for k in pose_src_keypoint_list if k is not None]
         swin_model = SwinMAE(norm_pix_loss=False, 
                                           mask_ratio=0.75,
                                           embed_dim=64,
