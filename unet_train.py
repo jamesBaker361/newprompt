@@ -10,6 +10,8 @@ from experiment_helpers.training import train_unet
 from datasets import load_dataset
 import torch
 import shutil
+from static_globals import *
+import wandb
 
 parser=argparse.ArgumentParser()
 
@@ -26,6 +28,7 @@ parser.add_argument("--epochs",type=int,default=5)
 parser.add_argument("--hf_repo",type=str,default="jlbaker361/league_unet")
 parser.add_argument("--pretrained_vae",action="store_true")
 parser.add_argument("--vae_id",type=str,default="jlbaker361/league_vae_25")
+parser.add_argument("--resize",type=int,default=512)
 
 
 
@@ -46,7 +49,7 @@ def main(args):
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
-    training_prompt_list=[" " for _ in training_image_list]
+    training_prompt_list=["character" for _ in training_image_list]
     pipeline=train_unet(pipeline,
                         args.epochs,
                         training_image_list,
@@ -62,7 +65,28 @@ def main(args):
                         0.0,
                         True
                         )
-    pair_dict={
+    pipeline.save_pretrained(args.save_dir, push_to_hub=True, repo_id=args.hf_repo)
+    evaluation_prompt_list=[
+        " {} ",
+        " happy {} ",
+        " {} eating a burger "
+    ]
+    evaluation_images=[
+        pipeline(prompt.format("character"),num_inference_steps=30,
+                 negative_prompt=NEGATIVE,height=args.resize,width=args.resize).images[0] for prompt in evaluation_prompt_list
+    ]
+    for image in evaluation_images:
+        try:
+            accelerator.log({
+                "image":wandb.Image(image)
+            })
+        except:
+            tmp="temp.png"
+            image.save(tmp)
+            accelerator.log({
+                "image":wandb.Image(tmp)
+            })
+    '''pair_dict={
       #  "tokenizer":pipeline.tokenizer,
         "vae":pipeline.vae,
         "unet":pipeline.unet,
@@ -93,7 +117,7 @@ def main(args):
     shutil.copy(scheduler_config_src,new_scheduler_config)
                                       
     model_index_src=hf_hub_download(repo_id=args.pretrained_src, filename=f"model_index.json")
-    new_model_index=os.path.join(args.save_dir,"model_index.json")
+    new_model_index=os.path.join(args.save_dir,"model_index.json")'''
     return
 
 if __name__=='__main__':
