@@ -40,6 +40,7 @@ from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresn
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
 from experiment_helpers.training import train_unet as train_unet_function
+from controlnet_aux.open_pose.body import Keypoint
 from experiment_helpers.lora_loading import save_pipeline_hf
 from experiment_helpers.better_ddpo_pipeline import BetterDefaultDDPOStableDiffusionPipeline
 from experiment_helpers.better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
@@ -68,6 +69,7 @@ from einops import rearrange
 from nearest_neighbors import nearest,cos_sim_rescaled
 from dift.src.models.dift_sd import SDFeaturizer
 from pose_helpers import get_poseresult,intermediate_points_body
+from typing import List
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -229,7 +231,12 @@ def evaluate_one_sample(
             })
 
     
-    
+    def get_keypoint_dict(keypoint_list:List[Keypoint],rescale=32)->dict:
+        k_dict={}
+        for keypoint in keypoint_list:
+            if k is not None:
+                k_dict[k.id]=(int(k.x*H)//rescale, int(k.y*W)//rescale)
+        return k_dict
     
     birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet", trust_remote_code=True).to(accelerator.device)
     removed_src,mask=remove_background_birefnet(src_image,birefnet,return_mask=True)
@@ -332,7 +339,9 @@ def evaluate_one_sample(
         print("dift_size ",dift_size)
         image_mask=np.array(src_image.resize(dift_size).convert("L"))
         valid_pixels = np.argwhere(image_mask != 0)
-        openpose_valid_pixels=[(int(k.x*H)//32, int(k.y*W)//32) for k in pose_src_keypoint_list if k is not None]
+        #openpose_valid_pixels=[(int(k.x*H)//32, int(k.y*W)//32) for k in pose_src_keypoint_list if k is not None]
+        rescale=width//dift_size[-1]
+        keypoint_dict=get_keypoint_dict(pose_src_keypoint_list,rescale)
 
 
     if use_proto_gan:
@@ -440,12 +449,31 @@ def evaluate_one_sample(
 
         if semantic_matching_strategy==NEAREST_NEIGHBORS:
             sampled_indices = random.sample(list(valid_pixels), min(semantic_matching_points,len(valid_pixels)))
+            for (x,y) in sampled_indices:
+                [_,sim]=nearest(src_image_ft, image_ft,x,y)
+                similarity+=sim
         elif semantic_matching_strategy==OPENPOSE_POINTS:
-            sampled_indices=openpose_valid_pixels
+            '''
+                pose_result=get_poseresult(detector, src_image,H,False,True)
+    interm_points=intermediate_points_body(pose_result.body.keypoints,2)
+    pose_src_keypoint_list=interm_points+pose_result.body.keypoints
+            '''
+            gen_pose_result=get_poseresult(detector,image,H,False,True)
+            gen_interm_points=intermediate_points_body(gen_pose_result.body.keypoints,2)
+            gen_pose_src_keypoint_list=gen_interm_points+gen_pose_result.body.keypoints
+            gen_keypoint_dict=get_keypoint_dict(gen_pose_src_keypoint_list,rescale)
 
-        for (x,y) in sampled_indices:
-            [_,sim]=nearest(src_image_ft, image_ft,x,y)
-            similarity+=sim
+            for k in keypoint_dict.keys():
+                if k in gen_keypoint_dict:
+                    (src_x,src_y)=keypoint_dict[k]
+                    (target_x,target_y)=gen_keypoint_dict[k]
+                    src_vector=src_image_ft[:,src_x,src_y]
+                    target_vector=image_ft[:, target_x,target_y]
+                    sim=cos_sim_rescaled(src_vector,target_vector)
+                    similarity+=sim
+                    
+
+        
         return similarity/semantic_matching_points
 
     
