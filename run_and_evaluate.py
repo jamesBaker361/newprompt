@@ -204,7 +204,7 @@ def evaluate_one_sample(
     pose_result=get_poseresult(detector, src_image,H,False,True)
     interm_points=intermediate_points_body(pose_result.body.keypoints,2)
     pose_src_keypoint_list=interm_points+pose_result.body.keypoints
-    def draw_points(pose_src_keypoint_list:List[Keypoint],src_image:Image.Image):
+    def draw_points(pose_src_keypoint_list:List[Keypoint],src_image:Image.Image,name="pose"):
         copy_image=src_image.copy()
         draw = ImageDraw.Draw(copy_image)
         for k in pose_src_keypoint_list:
@@ -219,17 +219,17 @@ def evaluate_one_sample(
                     )
         try:
             accelerator.log({
-                "pose":copy_image
+                name:copy_image
             })
         except:
             try:
                 accelerator.log({
-                "pose":wandb.Image(copy_image)
+                name:wandb.Image(copy_image)
                 })
             except:
                 copy_image.save("temp.png")
                 accelerator.log({
-                    "pose":wandb.Image("temp.png")
+                    name:wandb.Image("temp.png")
                 })
     draw_points(pose_src_keypoint_list, src_image)
 
@@ -464,6 +464,8 @@ def evaluate_one_sample(
             gen_pose_result=get_poseresult(detector,image,H,False,True)
             gen_interm_points=intermediate_points_body(gen_pose_result.body.keypoints,2)
             gen_pose_src_keypoint_list=gen_interm_points+gen_pose_result.body.keypoints
+
+            draw_points(gen_pose_src_keypoint_list,image,"pose_gen")
 
             gen_keypoint_dict=get_keypoint_dict(gen_pose_src_keypoint_list,rescale)
 
