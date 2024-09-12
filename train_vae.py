@@ -4,6 +4,7 @@ import argparse
 from experiment_helpers.gpu_details import print_details
 from accelerate import Accelerator
 import time
+from diffusers import StableDiffusionPipeline
 from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
 from experiment_helpers.training import pil_to_tensor_process
 from datasets import load_dataset
@@ -60,11 +61,11 @@ def main(args):
     for fixed in fixed_images:
         print("fixed range",torch.max(fixed),torch.min(fixed))
     
-    vae=AutoencoderKL()
-    weight_path=hf_hub_download(repo_id=args.pretrained_src, filename="vae/diffusion_pytorch_model.bin")
+    vae=StableDiffusionPipeline.from_pretrained(args.pretrained_src).vae
+    '''weight_path=hf_hub_download(repo_id=args.pretrained_src, filename="vae/diffusion_pytorch_model.safetensors")
     state_dict=load_file(weight_path)
 
-    vae.load_state_dict(state_dict)
+    vae.load_state_dict(state_dict)'''
 
     vae.train()
 
