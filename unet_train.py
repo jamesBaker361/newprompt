@@ -39,7 +39,7 @@ parser.add_argument("--lora_target_modules", default=["to_q", "to_k", "to_v"], t
 
 def main(args):
     os.makedirs(args.save_dir,exist_ok=True)
-    accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision)
+    accelerator=Accelerator(log_with="wandb",mixed_precision=args.mixed_precision,gradient_accumulation_steps=args.batch_size)
     accelerator.init_trackers(project_name=args.project_name,config=vars(args))
     pipeline=StableDiffusionPipeline.from_pretrained(args.pretrained_src)
     if args.pretrained_vae:
@@ -59,6 +59,7 @@ def main(args):
     pipeline.unet=pipeline.unet.to(accelerator.device)
     pipeline.vae=pipeline.vae.to(accelerator.device)
     pipeline.unet.train()
+    pipeline=pipeline.to(accelerator.device)
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
@@ -70,7 +71,7 @@ def main(args):
                         optimizer,
                         False,
                         " ",
-                        args.batch_size,
+                        1,
                         1.0,
                         "character",
                         accelerator,
