@@ -476,7 +476,7 @@ def evaluate_one_sample(
                         (target_x,target_y)=gen_keypoint_dict[k]
                         src_vector=src_image_ft[:,src_x,src_y]
                         target_vector=image_ft[:, target_x,target_y]
-                        sim=cos_sim_rescaled(src_vector,target_vector)
+                        sim=cos_sim_rescaled(src_vector,target_vector).item()
                         similarity+=sim
             except:
                 return 0
