@@ -171,6 +171,7 @@ parser.add_argument("--semantic_matching_strategy",type=str,default=OPENPOSE_POI
 parser.add_argument("--dift_t",type=int,default=261)
 parser.add_argument("--dift_up_ft_index",type=int,default=1)
 parser.add_argument("--dift_model",type=str,default="stabilityai/stable-diffusion-2-1")
+parser.add_argument("--use_ip_adapter_ddpo",action="store_true")
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -376,7 +377,8 @@ def main(args):
                                                                 args.final_dift_weight,
                                                                 args.dift_t,
                                                                 args.dift_up_ft_index,
-                                                                args.dift_model
+                                                                args.dift_model,
+                                                                args.use_ip_adapter_ddpo
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
