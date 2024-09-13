@@ -6,7 +6,7 @@ from diffusers import StableDiffusionPipeline
 import time
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_model,save_model
-from experiment_helpers.training import train_unet
+from experiment_helpers.training import train_unet,train_unet_single_prompt
 from datasets import load_dataset
 import torch
 import shutil
@@ -63,10 +63,10 @@ def main(args):
     optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
     training_prompt_list=["character" for _ in training_image_list]
-    pipeline=train_unet(pipeline,
+    pipeline=train_unet_single_prompt(pipeline,
                         args.epochs,
                         training_image_list,
-                        training_prompt_list,
+                        "character",
                         optimizer,
                         False,
                         " ",
