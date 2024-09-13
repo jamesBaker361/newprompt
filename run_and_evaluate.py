@@ -506,9 +506,6 @@ def evaluate_one_sample(
             proto_gan_scores=[0.0 for _ in images]
             dift_scores=[0.0 for _ in images]
             time_factor=(float(epoch)/num_epochs)
-            if method_name==DPOK:
-                total_steps=max_train_steps//p_step
-                time_factor=float(epoch)/float(total_steps)
 
             removed_images=images
             if  semantic_matching or remove_background_flag:
