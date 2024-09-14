@@ -194,7 +194,8 @@ def evaluate_one_sample(
         final_dift_weight:float,
         dift_t:int,
         dift_up_ft_index:int,
-        dift_model:str)->dict:
+        dift_model:str,
+        use_ip_adapter_ddpo:bool)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
@@ -968,8 +969,12 @@ def evaluate_one_sample(
             pipeline,
             image_samples_hook,
             subject_key,
-            height
+            height,
+            use_ip_adapter=use_ip_adapter_ddpo,
+            ip_adapter_src_image=removed_src
         )
+        if use_ip_adapter_ddpo:
+            pipeline.sd_pipeline.set_ip_adapter_scale(0.5)
 
         if pretrain:
             #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
