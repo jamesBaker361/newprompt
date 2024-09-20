@@ -70,6 +70,8 @@ from nearest_neighbors import nearest,cos_sim_rescaled
 from dift.src.models.dift_sd import SDFeaturizer
 from pose_helpers import get_poseresult,intermediate_points_body
 from typing import List
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -973,10 +975,11 @@ def evaluate_one_sample(
             use_ip_adapter=use_ip_adapter_ddpo,
             ip_adapter_src_image=removed_src
         )
-        if use_ip_adapter_ddpo:
-            pipeline.sd_pipeline.set_ip_adapter_scale(0.5)
+        
 
         if pretrain:
+            if use_ip_adapter_ddpo:
+                pipeline.sd_pipeline.set_ip_adapter_scale(0.0)
             #pretrain_image_list=[src_image] *pretrain_steps_per_epoch
             _pretrain_image_list=[]
             _pretrain_prompt_list=[]
@@ -1030,6 +1033,8 @@ def evaluate_one_sample(
             torch.cuda.empty_cache()
             trainer.accelerator.free_memory()
         
+        if use_ip_adapter_ddpo:
+            pipeline.sd_pipeline.set_ip_adapter_scale(0.5)
         pipeline.sd_pipeline.scheduler.alphas_cumprod=pipeline.sd_pipeline.scheduler.alphas_cumprod.to("cpu")
 
         print(f"acceleerate device {trainer.accelerator.device}")
