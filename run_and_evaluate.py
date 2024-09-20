@@ -1093,14 +1093,25 @@ def evaluate_one_sample(
 
                 
         else:
-            evaluation_image_list=[
-                pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
-                        num_inference_steps=num_inference_steps,
-                        negative_prompt=NEGATIVE,
-                        width=width,
-                        height=height,
-                        safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
-            ]
+            if use_ip_adapter_ddpo:
+                evaluation_image_list=[
+                    pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
+                            num_inference_steps=num_inference_steps,
+                            negative_prompt=NEGATIVE,
+                            width=width,
+                            height=height,
+                            ip_adapter_image=removed_src,
+                            safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
+                ]
+            else:
+                evaluation_image_list=[
+                    pipeline.sd_pipeline(evaluation_prompt.format(entity_name),
+                            num_inference_steps=num_inference_steps,
+                            negative_prompt=NEGATIVE,
+                            width=width,
+                            height=height,
+                            safety_checker=None).images[0] for evaluation_prompt in evaluation_prompt_list
+                ]
             save_pipeline_hf(pipeline, f"jlbaker361/{ddpo_save_hf_tag}_{label}",f"/scratch/jlb638/{ddpo_save_hf_tag}_{label}")
         new_file=f"{entity_name}_{method_name}.txt"
         with open(new_file,"w+") as txt_file:
