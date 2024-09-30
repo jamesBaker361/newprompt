@@ -14,11 +14,13 @@ from static_globals import *
 from peft.utils import get_peft_model_state_dict
 import wandb
 from peft import LoraConfig
+from PIL import Image
+import random
 
 parser=argparse.ArgumentParser()
 
 parser.add_argument("--mixed_precision",type=str,default="no")
-parser.add_argument("--project_name",type=str,default="evaluation-creative")
+parser.add_argument("--project_name",type=str,default="unet")
 parser.add_argument("--save_dir",type=str,default="/scratch/jlb638/unet/")
 parser.add_argument("--image_dir",type=str,default="/scratch/jlb638/unet_images/")
 parser.add_argument("--load_saved",action="store_true")
@@ -35,7 +37,16 @@ parser.add_argument("--lora_r", default=16, type=int)
 parser.add_argument("--lora_alpha", default=32, type=int)
 parser.add_argument("--lora_target_modules", default=["to_q", "to_k", "to_v"], type=str, nargs="+")
 
-
+def flip_images_horizontally(image_list):
+    # List to store flipped images
+    flipped_images = []
+    
+    for image in image_list:
+        # Flip the image horizontally
+        flipped_image = image.transpose(Image.FLIP_LEFT_RIGHT)
+        flipped_images.append(flipped_image)
+    
+    return flipped_images
 
 def main(args):
     os.makedirs(args.save_dir,exist_ok=True)
@@ -63,6 +74,8 @@ def main(args):
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
+    training_image_list=flip_images_horizontally(training_image_list)
+    random.shuffle(training_image_list)
     training_prompt_list=["character" for _ in training_image_list]
     pipeline=train_unet_single_prompt(pipeline,
                         args.epochs,
