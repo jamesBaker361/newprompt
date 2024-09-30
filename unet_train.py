@@ -99,7 +99,8 @@ def main(args):
     evaluation_prompt_list=[
         " {} ",
         " happy {} ",
-        " {} eating a burger "
+        " {} eating a burger ",
+        " {} dancing"
     ]
     evaluation_images=[
         pipeline(prompt.format("character"),num_inference_steps=30,
