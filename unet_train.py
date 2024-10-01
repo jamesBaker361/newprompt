@@ -92,8 +92,9 @@ def main(args):
                         0.0,
                         True
                         )
-    unet_lora_layers = get_peft_model_state_dict(pipeline.unet)
+    
     if args.use_lora:
+        unet_lora_layers = get_peft_model_state_dict(pipeline.unet)
         pipeline.save_lora_weights(args.save_dir,unet_lora_layers)
     pipeline.save_pretrained(args.save_dir, push_to_hub=True, repo_id=args.hf_repo)
     evaluation_prompt_list=[
