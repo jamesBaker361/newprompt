@@ -96,7 +96,7 @@ def main(args):
             })
 
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
+    optimizer = torch.optim.AdamW(param_groups, lr=0.00001, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
     training_image_list=flip_images_horizontally(training_image_list)
     random.shuffle(training_image_list)
