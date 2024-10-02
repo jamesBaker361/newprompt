@@ -36,6 +36,7 @@ parser.add_argument("--resize",type=int,default=512)
 parser.add_argument("--lora_r", default=16, type=int)
 parser.add_argument("--lora_alpha", default=32, type=int)
 parser.add_argument("--lora_target_modules", default=["to_q", "to_k", "to_v"], type=str, nargs="+")
+parser.add_argument("--lr",type=float,default=0.00001)
 
 def flip_images_horizontally(image_list):
     # List to store flipped images
@@ -96,7 +97,7 @@ def main(args):
             })
 
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(param_groups, lr=0.00001, weight_decay=5e-2, betas=(0.9, 0.95))
+    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
     training_image_list=flip_images_horizontally(training_image_list)
     random.shuffle(training_image_list)
@@ -114,7 +115,8 @@ def main(args):
                         accelerator,
                         30,
                         0.0,
-                        True
+                        True,
+                        log_images=5
                         )
     
     if args.use_lora:
