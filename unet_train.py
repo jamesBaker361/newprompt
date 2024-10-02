@@ -71,6 +71,30 @@ def main(args):
     pipeline.vae=pipeline.vae.to(accelerator.device)
     pipeline.unet.train()
     pipeline=pipeline.to(accelerator.device)
+
+    evaluation_prompt_list=[
+        " {} ",
+        " happy {} ",
+        " {} eating a burger ",
+        " {} dancing"
+    ]
+
+    evaluation_images=[
+        pipeline(prompt.format("character"),num_inference_steps=30,
+                 negative_prompt=NEGATIVE,height=args.resize,width=args.resize).images[0] for prompt in evaluation_prompt_list
+    ]
+    for image in evaluation_images:
+        try:
+            accelerator.log({
+                "image_before":wandb.Image(image)
+            })
+        except:
+            tmp="temp.png"
+            image.save(tmp)
+            accelerator.log({
+                "image_before":wandb.Image(tmp)
+            })
+
     param_groups = [p for p in pipeline.unet.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(param_groups, lr=0.0001, weight_decay=5e-2, betas=(0.9, 0.95))
     training_image_list=[row["splash"].resize((args.resize,args.resize)) for row in load_dataset(args.dataset,split="train")]
@@ -110,13 +134,13 @@ def main(args):
     for image in evaluation_images:
         try:
             accelerator.log({
-                "image":wandb.Image(image)
+                "image_after":wandb.Image(image)
             })
         except:
             tmp="temp.png"
             image.save(tmp)
             accelerator.log({
-                "image":wandb.Image(tmp)
+                "image_after":wandb.Image(tmp)
             })
     '''pair_dict={
       #  "tokenizer":pipeline.tokenizer,
