@@ -40,6 +40,7 @@ from experiment_helpers.elastic_face_iresnet import get_face_embedding,get_iresn
 from experiment_helpers.measuring import get_metric_dict,get_vit_embeddings
 from experiment_helpers.better_vit_model import BetterViTModel
 from experiment_helpers.training import train_unet as train_unet_function
+from experiment_helpers.training import train_unet_single_prompt
 from controlnet_aux.open_pose.body import Keypoint
 from experiment_helpers.lora_loading import save_pipeline_hf
 from experiment_helpers.better_ddpo_pipeline import BetterDefaultDDPOStableDiffusionPipeline
@@ -66,7 +67,7 @@ from classifier_guidance import classifier_call
 from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
 from einops import rearrange
 from nearest_neighbors import nearest,cos_sim_rescaled
-from dift.src.models.dift_sd import SDFeaturizer
+from dift.src.models.dift_sd import SDFeaturizer,MyUNet2DConditionModel,OneStepSDPipeline
 from pose_helpers import get_poseresult,intermediate_points_body
 from typing import List
 from PIL import ImageFile
@@ -197,7 +198,9 @@ def evaluate_one_sample(
         dift_up_ft_index:int,
         dift_model:str,
         use_ip_adapter_ddpo:bool,
-        custom_dift:bool)->dict:
+        custom_dift:bool,
+        custom_dift_epochs:int,
+        custom_dift_steps_per_epoch)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
@@ -337,6 +340,34 @@ def evaluate_one_sample(
         
     if use_dift:
         sd_featurizer=SDFeaturizer(dift_model)
+        if custom_dift:
+            my_unet=MyUNet2DConditionModel.from_pretrained(dift_model, subfolder="unet")
+            my_unet.train()
+            my_pipeline=OneStepSDPipeline.from_pretrained(dift_model,unet=my_unet,safety_checker=None)
+            my_pipeline=my_pipeline.to(accelerator.device)
+            dift_training_image_list=[]
+            while len(dift_training_image_list)< custom_dift_steps_per_epoch:
+                dift_training_image_list.append(src_image)
+                dift_training_image_list.append(src_image.transpose(Image.FLIP_LEFT_RIGHT))
+            dift_optimizer=torch.optim.AdamW([p for p in unet.parameters() if p.requires_grad],ddpo_lr)
+            my_pipeline=train_unet_single_prompt(my_pipeline,
+                                                 custom_dift_epochs,
+                                                 dift_training_image_list,
+                                                 "character",
+                                                 dift_optimizer,
+                                                 False,
+                                                 "character",
+                                                 batch_size,
+                                                 1.0,
+                                                 "character",
+                                                 accelerator,
+                                                 num_inference_steps,
+                                                 0.0,
+                                                 True,
+                                                 log_images=2
+                                                 )
+            sd_featurizer.pipe=my_pipeline
+            
         src_image_tensor=PILToTensor()(removed_src.resize((1024,1024)))
         src_image_tensor=rescale_around_zero(src_image_tensor)
         src_dift_ft=sd_featurizer.forward(src_image_tensor,t=dift_t,up_ft_index=dift_up_ft_index,ensemble_size=1).squeeze(0).cpu()

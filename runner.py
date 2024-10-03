@@ -173,6 +173,9 @@ parser.add_argument("--dift_up_ft_index",type=int,default=1)
 parser.add_argument("--dift_model",type=str,default="stabilityai/stable-diffusion-2-1")
 parser.add_argument("--use_ip_adapter_ddpo",action="store_true")
 parser.add_argument("--custom_dift",action="store_true")
+parser.add_argument("--custom_dift_epochs",type=int,default=20)
+parser.add_argument("--custom_dift_steps_per_epoch",type=int,default=16)
+
 '''  parser.add_argument(
       "--gradient_accumulation_steps",
       type=int,
@@ -380,7 +383,9 @@ def main(args):
                                                                 args.dift_up_ft_index,
                                                                 args.dift_model,
                                                                 args.use_ip_adapter_ddpo,
-                                                                args.custom_dift
+                                                                args.custom_dift,
+                                                                args.custom_dift_epochs,
+                                                                args.custom_dift_steps_per_epoch
                                                                 )
         os.makedirs(f"{args.image_dir}",exist_ok=True)
         hf_dict={
