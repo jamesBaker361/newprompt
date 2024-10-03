@@ -349,7 +349,7 @@ def evaluate_one_sample(
             while len(dift_training_image_list)< custom_dift_steps_per_epoch:
                 dift_training_image_list.append(src_image)
                 dift_training_image_list.append(src_image.transpose(Image.FLIP_LEFT_RIGHT))
-            dift_optimizer=torch.optim.AdamW([p for p in unet.parameters() if p.requires_grad],ddpo_lr)
+            dift_optimizer=torch.optim.AdamW([p for p in my_unet.parameters() if p.requires_grad],ddpo_lr)
             my_pipeline=train_unet_single_prompt(my_pipeline,
                                                  custom_dift_epochs,
                                                  dift_training_image_list,
