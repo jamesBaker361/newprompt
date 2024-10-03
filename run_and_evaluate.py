@@ -342,15 +342,14 @@ def evaluate_one_sample(
     if use_dift:
         sd_featurizer=SDFeaturizer(dift_model)
         if custom_dift:
-            my_unet=MyUNet2DConditionModel.from_pretrained(dift_model, subfolder="unet")
-            my_unet.train()
-            my_pipeline=UnsafeStableDiffusionPipeline.from_pretrained(dift_model,unet=my_unet)
+            my_pipeline=UnsafeStableDiffusionPipeline.from_pretrained(dift_model)
+            my_pipeline.unet.train()
             my_pipeline=my_pipeline.to(accelerator.device)
             dift_training_image_list=[]
             while len(dift_training_image_list)< custom_dift_steps_per_epoch:
                 dift_training_image_list.append(src_image)
                 dift_training_image_list.append(src_image.transpose(Image.FLIP_LEFT_RIGHT))
-            dift_optimizer=torch.optim.AdamW([p for p in my_unet.parameters() if p.requires_grad],ddpo_lr)
+            dift_optimizer=torch.optim.AdamW([p for p in my_pipeline.unet.parameters() if p.requires_grad],ddpo_lr)
             my_pipeline=train_unet_single_prompt(my_pipeline,
                                                  custom_dift_epochs,
                                                  dift_training_image_list,
@@ -367,6 +366,8 @@ def evaluate_one_sample(
                                                  True,
                                                  log_images=2
                                                  )
+            my_unet=MyUNet2DConditionModel.from_pretrained(dift_model,subfolder="unet")
+            my_unet.load_state_dict(my_pipeline.unet.state_dict())
             one_step_pipeline=OneStepSDPipeline.from_pretrained(dift_model,unet=my_unet,safety_checker=None)
             sd_featurizer.pipe=one_step_pipeline
             
