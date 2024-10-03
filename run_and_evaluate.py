@@ -196,7 +196,8 @@ def evaluate_one_sample(
         dift_t:int,
         dift_up_ft_index:int,
         dift_model:str,
-        use_ip_adapter_ddpo:bool)->dict:
+        use_ip_adapter_ddpo:bool,
+        custom_dift:bool)->dict:
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
