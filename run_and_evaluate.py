@@ -25,6 +25,7 @@ reward_cache="/scratch/jlb638/ImageReward"
 from functools import partial
 from static_globals import *
 from accelerate import Accelerator
+from accelerate.utils import set_seed
 from transformers import CLIPProcessor, CLIPModel,ViTImageProcessor, ViTModel,CLIPTokenizer
 import numpy as np
 import gc
@@ -202,6 +203,7 @@ def evaluate_one_sample(
         custom_dift:bool,
         custom_dift_epochs:int,
         custom_dift_steps_per_epoch)->dict:
+    set_seed(1234)
     os.makedirs(image_dir,exist_ok=True)
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
     method_name=method_name.strip()
