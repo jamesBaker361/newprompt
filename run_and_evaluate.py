@@ -47,6 +47,7 @@ from experiment_helpers.better_ddpo_pipeline import BetterDefaultDDPOStableDiffu
 from experiment_helpers.better_ddpo_trainer import BetterDDPOTrainer,get_image_sample_hook
 from experiment_helpers.clothing import clothes_segmentation, get_segmentation_model
 from experiment_helpers.cloth_process import generate_mask,load_seg_model,get_palette
+from experiment_helpers.unsafe_stable_diffusion_pipeline import UnsafeStableDiffusionPipeline
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 from huggingface_hub import HfApi
@@ -343,7 +344,7 @@ def evaluate_one_sample(
         if custom_dift:
             my_unet=MyUNet2DConditionModel.from_pretrained(dift_model, subfolder="unet")
             my_unet.train()
-            my_pipeline=OneStepSDPipeline.from_pretrained(dift_model,unet=my_unet,safety_checker=None)
+            my_pipeline=UnsafeStableDiffusionPipeline.from_pretrained(dift_model,unet=my_unet)
             my_pipeline=my_pipeline.to(accelerator.device)
             dift_training_image_list=[]
             while len(dift_training_image_list)< custom_dift_steps_per_epoch:
@@ -366,7 +367,8 @@ def evaluate_one_sample(
                                                  True,
                                                  log_images=2
                                                  )
-            sd_featurizer.pipe=my_pipeline
+            one_step_pipeline=OneStepSDPipeline.from_pretrained(dift_model,unet=my_unet,safety_checker=None)
+            sd_featurizer.pipe=one_step_pipeline
             
         src_image_tensor=PILToTensor()(removed_src.resize((1024,1024)))
         src_image_tensor=rescale_around_zero(src_image_tensor)
