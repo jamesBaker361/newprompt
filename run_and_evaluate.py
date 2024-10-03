@@ -49,7 +49,6 @@ from experiment_helpers.cloth_process import generate_mask,load_seg_model,get_pa
 from torchvision.transforms import PILToTensor
 import torch.nn.functional as F
 from huggingface_hub import HfApi
-from experiment_helpers.legacy_dreamsim import dreamsim
 from huggingface_hub import hf_hub_download, snapshot_download
 from diffusers.models import ControlNetModel
 from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
@@ -425,10 +424,6 @@ def evaluate_one_sample(
     torch.cuda.empty_cache()
     accelerator.free_memory()
     
-    dream_model, dream_preprocess = dreamsim(pretrained=True,cache_dir="/scratch/jlb638/dreamsim",device=accelerator.device)
-    src_dream_embedding=dream_model.embed(dream_preprocess(removed_src).to(accelerator.device))[0]
-
-    
     clip_processor=CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
     clip_model=CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
 
@@ -683,20 +678,6 @@ def evaluate_one_sample(
                     })
                 except:
                     pass
-            if use_dream_sim:
-                dream_weight=initial_dream_sim_weight+((final_dream_sim_weight-initial_dream_sim_weight)*time_factor)
-                dream_similarities=[
-                    dream_weight*cos_sim_rescaled(src_dream_embedding, dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]) for image in removed_images
-                ]
-                dream_similarities=[
-                    dream.detach().cpu().numpy() for dream in dream_similarities
-                ]
-                try:
-                    accelerator.log({
-                        "dream_distance":np.mean(dream_similarities)
-                    })
-                except:
-                    pass
             if use_dift:
                 dift_weight=initial_dift_weight+((final_dift_weight-initial_dift_weight)* time_factor)
                 dift_scores=[
@@ -943,9 +924,6 @@ def evaluate_one_sample(
                         fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
                         face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
                         reward=fashion_reward+face_reward
-                    elif prompt==content_key and DREAM_REWARD in multi_rewards:
-                        dream_embedding=dream_model.embed(dream_preprocess(image).to(accelerator.device))[0]
-                        reward=cos_sim_rescaled(dream_embedding,src_dream_embedding)
                     elif prompt==style_key:
                         vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
                         vit_processor,vit_model,[image],False)
