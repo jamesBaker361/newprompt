@@ -371,7 +371,7 @@ def evaluate_one_sample(
             my_unet=MyUNet2DConditionModel.from_pretrained(dift_model,subfolder="unet")
             my_unet.load_state_dict(my_pipeline.unet.state_dict())
             one_step_pipeline=OneStepSDPipeline.from_pretrained(dift_model,unet=my_unet,safety_checker=None)
-            sd_featurizer.pipe=one_step_pipeline
+            sd_featurizer.pipe=one_step_pipeline.to(accelerator.device)
             
         src_image_tensor=PILToTensor()(removed_src.resize((1024,1024)))
         src_image_tensor=rescale_around_zero(src_image_tensor)
