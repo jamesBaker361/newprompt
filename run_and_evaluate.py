@@ -340,20 +340,6 @@ def evaluate_one_sample(
         #openpose_valid_pixels=[(int(k.x*H)//32, int(k.y*W)//32) for k in pose_src_keypoint_list if k is not None]
         rescale=width//dift_size[-1]
         keypoint_dict=get_keypoint_dict(pose_src_keypoint_list,rescale)
-
-
-    if use_proto_gan:
-        proto_discriminator=Discriminator(64,3,height,1)
-
-        ckpt = torch.load(pretrained_proto_gan)
-        proto_discriminator.load_state_dict(ckpt['d'])
-
-        proto_discriminator=proto_discriminator.to(accelerator.device)
-        
-        def get_proto_gan_score(image:Image.Image):
-            tensor_img=composed_trans(image).unsqueeze(0).to(accelerator.device)
-            pred, _, _,_, = proto_discriminator(tensor_img,"fake")
-            return pred.mean().detach().cpu().numpy()
     
 
     max_train_steps=samples_per_epoch*num_epochs
@@ -535,17 +521,6 @@ def evaluate_one_sample(
                 try:
                     accelerator.log({
                         "style_distance":np.mean(style_similarities)
-                    })
-                except:
-                    pass
-
-            if use_proto_gan:
-                proto_gan_weight=initial_proto_gan_weight+((final_proto_gan_weight-initial_proto_gan_weight)*time_factor)
-                proto_gan_scores=[
-                    proto_gan_weight * get_proto_gan_score(image) for image in removed_images]
-                try:
-                    accelerator.log({
-                        "proto_gan_score":np.mean(proto_gan_scores)
                     })
                 except:
                     pass
