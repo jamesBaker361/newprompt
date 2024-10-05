@@ -295,51 +295,7 @@ def evaluate_one_sample(
         ]
     composed_trans = transforms.Compose(transform_list)
 
-    if use_swin:
-        openpose_valid_pixels=[(int(k.x*H)//16, int(k.y*W)//16) for k in pose_src_keypoint_list if k is not None]
-        swin_model = SwinMAE(norm_pix_loss=False, 
-                                          mask_ratio=0.75,
-                                          embed_dim=64,
-                                          decoder_embed_dim=512,
-                                          img_size=width,
-                                          patch_size=4,
-                                          norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
-                                          window_size=8)
-        state_dict=torch.load(pretrained_swin)
-        try:
-            swin_model.load_state_dict(state_dict)
-        except RuntimeError: #we might have had to use the smaller patches
-            swin_model = SwinMAE(norm_pix_loss=False, 
-                                          mask_ratio=0.75,
-                                          embed_dim=64,
-                                          decoder_embed_dim=512,
-                                          img_size=width,
-                                          patch_size=2,
-                                          norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
-                                          window_size=8)
-            swin_model.load_state_dict(state_dict)
-        swin_model=swin_model.to(accelerator.device)
-
-       
-        src_swin_tensor=composed_trans(removed_src).unsqueeze(0).to(accelerator.device)
-        src_swin_embedding_raw,_=swin_model.forward_encoder(src_swin_tensor)
-        src_swin_embedding_raw=swin_model.first_patch_expanding(src_swin_embedding_raw)
-        src_swin_embedding_raw = rearrange(src_swin_embedding_raw, 'B H W C -> B C H W ').cpu().detach()
-        print(src_swin_embedding_raw.size())
-        raw_swin_size=src_swin_embedding_raw.size()[-2:]
-        print('raw_swin_size',raw_swin_size)
-        image_mask=np.array(src_image.resize(raw_swin_size).convert("L"))
-        valid_pixels = np.argwhere(image_mask != 0)
-        
-        src_swin_embedding=torch.flatten(src_swin_embedding_raw)
-        src_swin_embedding_raw=src_swin_embedding_raw.squeeze(0)
-
-        def get_swin_similarity(image:Image.Image):
-            tensor_img=composed_trans(image).unsqueeze(0).to(accelerator.device)
-            swin_embedding,_=swin_model.forward_encoder(tensor_img)
-            swin_embedding=torch.flatten(swin_embedding)
-            sim=cos_sim_rescaled(swin_embedding,src_swin_embedding,True)
-            return sim
+    
         
     if use_dift:
         sd_featurizer=SDFeaturizer(dift_model)
@@ -469,16 +425,7 @@ def evaluate_one_sample(
 
         similarity=0.0
         
-        if semantic_method=="swin":
-            #image_mask=F.interpolate(image_mask,raw_swin_size,mode='nearest')
-            #image_mask=np.array(image.resize(raw_swin_size).convert("L"))
-            resize_dim=raw_swin_size
-            swin_tensor=composed_trans(image).unsqueeze(0).to(accelerator.device)
-            swin_embedding_raw,_=swin_model.forward_encoder(swin_tensor)
-            swin_embedding_raw=swin_model.first_patch_expanding(swin_embedding_raw)
-            image_ft = rearrange(swin_embedding_raw, 'B H W C -> B C H W ').squeeze(0).cpu().detach()
-            src_image_ft=src_swin_embedding_raw
-        elif semantic_method=="dift":
+        if semantic_method=="dift":
             resize_dim=dift_size
             image_tensor=PILToTensor()(image.resize((1024,1024)))
             image_tensor=rescale_around_zero(image_tensor)
@@ -574,23 +521,6 @@ def evaluate_one_sample(
                     accelerator.log(
                         {"content_distance":np.mean(content_similarities)}
                     )
-                except:
-                    pass
-
-            if use_swin:
-                swin_weight=initial_swin_weight+ ((final_swin_weight-initial_swin_weight)* time_factor)
-                if semantic_matching:
-                    swin_similarities=[
-                    swin_weight * semantic_reward(image,"swin") for image in removed_images
-                    ]
-                else:
-                    swin_similarities=[
-                        swin_weight * get_swin_similarity(image) for image in removed_images
-                    ]
-                try:
-                    accelerator.log({
-                        "swin_similarity":np.mean(swin_similarities)
-                    })
                 except:
                     pass
             if use_vit_style:
