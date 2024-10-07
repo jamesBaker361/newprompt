@@ -256,19 +256,6 @@ def evaluate_one_sample(
     face_image=torchvision.transforms.ToPILImage()(extracted_face_tensor)
     print("subject",subject)
 
-    try:
-        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16')
-        vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16')
-    except:
-    
-
-        vit_processor = ViTImageProcessor.from_pretrained('facebook/dino-vitb16',force_download=True)
-        vit_model = BetterViTModel.from_pretrained('facebook/dino-vitb16',force_download=True)
-    vit_model.eval()
-    vit_model.requires_grad_(False)
-    #vit_model.to(accelerator.device)
-    #vit_model=accelerator.prepare(vit_model)
-
     width,height=src_image.size
     print("width,height",src_image.size)
     
@@ -378,12 +365,6 @@ def evaluate_one_sample(
     fashion_clip_model.eval()
         
     fashion_src_embedding=get_fashion_embedding(fashion_src,fashion_clip_processor, fashion_clip_model)
-    vit_src_image_embedding_list,vit_src_style_embedding_list,vit_src_content_embedding_list=get_vit_embeddings(
-        vit_processor,vit_model,[removed_src],False
-    )
-    vit_src_image_embedding=vit_src_image_embedding_list[0]
-    vit_src_style_embedding=vit_src_style_embedding_list[0]
-    vit_src_content_embedding=vit_src_content_embedding_list[0]
 
     torch.cuda.empty_cache()
     accelerator.free_memory()
@@ -464,51 +445,6 @@ def evaluate_one_sample(
             if  semantic_matching or remove_background_flag:
                 removed_images=[remove_background_birefnet(image,birefnet) for image in images]
             print(removed_images)
-            if use_vit_content or use_vit_style or use_vit_distance:
-                vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                    vit_processor,vit_model,removed_images,False
-                )
-            if use_vit_distance:
-                vit_weight=initial_vit_weight+((final_vit_weight-initial_vit_weight)*time_factor)
-                vit_similarities=[ cos_sim_rescaled(vit_src_image_embedding,embedding)
-                        for embedding in vit_embedding_list]
-                vit_similarities=[vit_weight*v for v in vit_similarities]
-                try:
-                    accelerator.log({
-                        "vit_distance":np.mean(vit_similarities)
-                    })
-                except:
-                    pass
-            if use_vit_content:
-                vit_content_weight=initial_vit_content_weight+((final_vit_content_weight-initial_vit_content_weight)*time_factor)
-                content_similarities=[
-                    cos_sim_rescaled(vit_src_content_embedding,content_embedding).item()
-                    for content_embedding  in vit_content_embedding_list
-                ]
-                content_similarities=[
-                    vit_content_weight * v for v in content_similarities
-                ]
-                try:
-                    accelerator.log(
-                        {"content_distance":np.mean(content_similarities)}
-                    )
-                except:
-                    pass
-            if use_vit_style:
-                vit_style_weight=initial_vit_style_weight+((final_vit_style_weight-initial_vit_style_weight)*time_factor)
-                style_similarities=[
-                    cos_sim_rescaled(vit_src_style_embedding, style_embedding).item()
-                    for style_embedding in vit_style_embedding_list
-                ]
-                style_similarities=[
-                    vit_style_weight * v for v in style_similarities
-                ]
-                try:
-                    accelerator.log({
-                        "style_distance":np.mean(style_similarities)
-                    })
-                except:
-                    pass
             if use_face_probs:
                 face_probs_weight=initial_face_probs_weight+((final_face_probs_weight-initial_face_probs_weight)*time_factor)
                 face_probabilities=[]
@@ -838,11 +774,6 @@ def evaluate_one_sample(
                     elif prompt==face_key:
                         face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
                         reward=cos_sim_rescaled(src_face_embedding,face_embedding)
-                    elif prompt==content_key and CONTENT_REWARD in multi_rewards:
-                        vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                        vit_processor,vit_model,[image],False)
-                        content_embedding=vit_content_embedding_list[0]
-                        reward=cos_sim_rescaled(content_embedding,vit_src_content_embedding)
                     elif prompt==content_key and BODY_REWARD in multi_rewards:
                         face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
                         if use_fashion_clip_segmented:
@@ -851,11 +782,6 @@ def evaluate_one_sample(
                         fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
                         face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
                         reward=fashion_reward+face_reward
-                    elif prompt==style_key:
-                        vit_embedding_list,vit_style_embedding_list, vit_content_embedding_list=get_vit_embeddings(
-                        vit_processor,vit_model,[image],False)
-                        style_embedding=vit_style_embedding_list[0]
-                        reward=cos_sim_rescaled(style_embedding,vit_src_style_embedding)
                     rewards.append(reward)
                 return rewards,{}
         elif method_name==DDPO or method_name==CONTROL_HACK:
