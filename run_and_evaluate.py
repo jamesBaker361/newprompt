@@ -759,32 +759,7 @@ def evaluate_one_sample(
             },
             #project_kwargs=project_kwargs
         )
-        if method_name==DDPO_MULTI:
-
-            def prompt_fn():
-                return random.choice(prompts),{}
-            
-            def reward_fn(images, prompts, epoch,prompt_metadata):
-                rewards=[]
-                for image,prompt in zip(images,prompts):
-                    if prompt==fashion_key:
-                        if use_fashion_clip_segmented:
-                            image=generate_mask(image,seg_model,accelerator.device)
-                        reward=cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
-                    elif prompt==face_key:
-                        face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
-                        reward=cos_sim_rescaled(src_face_embedding,face_embedding)
-                    elif prompt==content_key and BODY_REWARD in multi_rewards:
-                        face_embedding=get_face_embedding([image],mtcnn,iresnet,face_margin)[0]
-                        if use_fashion_clip_segmented:
-                            image=generate_mask(image,seg_model,accelerator.device)
-
-                        fashion_reward=0.5*cos_sim_rescaled(fashion_src_embedding, get_fashion_embedding(image,fashion_clip_processor,fashion_clip_model))
-                        face_reward=0.5*cos_sim_rescaled(src_face_embedding,face_embedding)
-                        reward=fashion_reward+face_reward
-                    rewards.append(reward)
-                return rewards,{}
-        elif method_name==DDPO or method_name==CONTROL_HACK:
+        if method_name==DDPO or method_name==CONTROL_HACK:
             def prompt_fn():
                 return entity_name,{}
 
