@@ -205,9 +205,9 @@ def optimize_prompt(args:dict,
             projected_embeds, nn_indices = nn_project(optimized_text_states, token_embedding, print_hits=True)
 
             # Use Hugging Face's tokenizer to decode tokens back to text (approximation)
-            optimized_prompt = clip_processor.tokenizer.decode(nn_indices[0], skip_special_tokens=True)
-            print(f"Step {step} - Loss: {loss.item()} prompt: {optimized_prompt}")
-    return optimized_prompt
+            text_prompt = clip_processor.tokenizer.decode(nn_indices[0], skip_special_tokens=True)
+            print(f"Step {step} - Loss: {loss.item()} prompt: {text_prompt}")
+    return text_prompt
 
     
 
