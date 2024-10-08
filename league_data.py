@@ -56,7 +56,7 @@ def main(args):
             "splash":[],
             "subject":[]
         }
-    label_set=set(src_dict["label"])
+    label_set=set([])
     src_dataset=load_dataset(args.src_dataset,split="train")
     for i,row in enumerate(src_dataset):
         if i>args.limit:
