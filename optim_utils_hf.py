@@ -167,46 +167,47 @@ def optimize_prompt(args:dict,
     text_input = clip_processor.tokenizer(text=text_prompt, return_tensors="pt", padding=True).to(device)
     print(text_input)
 
-    # Enable gradient tracking on the tokenized text input embeddings
-    text_outputs = clip_model.text_model(
-            **text_input
-        )
+    for e in range(args.epochs):
+        # Enable gradient tracking on the tokenized text input embeddings
+        text_outputs = clip_model.text_model(
+                **text_input
+            )
 
-    text_states=text_outputs[0]
-    optimized_text_states=text_states.clone().detach().requires_grad_(True)
-    
-    #optimized_text_embeds = text_embeddings.clone().detach().requires_grad_(True)
-    # Define optimizer for the text embeddings
-    optimizer = torch.optim.Adam([optimized_text_states], lr=0.01)
-    
-    # Optimization loop to update text embeddings
-    for step in range(args.iter):  # Run for 100 iterations
-        optimizer.zero_grad()
-        text_outputs=forward_hidden(clip_model.text_model,optimized_text_states,text_input["input_ids"])
-        text_embeddings=text_outputs[1]
+        text_states=text_outputs[0]
+        optimized_text_states=text_states.clone().detach().requires_grad_(True)
+        
+        #optimized_text_embeds = text_embeddings.clone().detach().requires_grad_(True)
+        # Define optimizer for the text embeddings
+        optimizer = torch.optim.Adam([optimized_text_states], lr=0.01)
+        
+        # Optimization loop to update text embeddings
+        for step in range(args.iter):  # Run for 100 iterations
+            optimizer.zero_grad()
+            text_outputs=forward_hidden(clip_model.text_model,optimized_text_states,text_input["input_ids"])
+            text_embeddings=text_outputs[1]
 
-        text_embeddings = clip_model.text_projection(text_embeddings)
-        # Normalize the text embedding
-        normalized_text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
+            text_embeddings = clip_model.text_projection(text_embeddings)
+            # Normalize the text embedding
+            normalized_text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
 
-        # Compute cosine similarity and loss (minimizing distance)
-        cosine_similarity = torch.cosine_similarity(image_features, normalized_text_embeddings)
-        loss = 1 - cosine_similarity.mean()  # Minimize the distance
+            # Compute cosine similarity and loss (minimizing distance)
+            cosine_similarity = torch.cosine_similarity(image_features, normalized_text_embeddings)
+            loss = 1 - cosine_similarity.mean()  # Minimize the distance
 
-        # Backpropagation to compute gradients
-        loss.backward()
+            # Backpropagation to compute gradients
+            loss.backward()
 
-        # Update the text embeddings
-        optimizer.step()
+            # Update the text embeddings
+            optimizer.step()
 
-        if step % 10 == 0 or step==args.iter-1:
+            if step % 10 == 0 or step==args.iter-1:
 
-            # After optimization, convert the optimized text embeddings back to tokens
-            projected_embeds, nn_indices = nn_project(optimized_text_states, token_embedding, print_hits=True)
+                # After optimization, convert the optimized text embeddings back to tokens
+                projected_embeds, nn_indices = nn_project(optimized_text_states, token_embedding, print_hits=True)
 
-            # Use Hugging Face's tokenizer to decode tokens back to text (approximation)
-            text_prompt = clip_processor.tokenizer.decode(nn_indices[0], skip_special_tokens=True)
-            print(f"Step {step} - Loss: {loss.item()} prompt: {text_prompt}")
+                # Use Hugging Face's tokenizer to decode tokens back to text (approximation)
+                text_prompt = clip_processor.tokenizer.decode(nn_indices[0], skip_special_tokens=True)
+                print(f"Step {step} - Loss: {loss.item()} prompt: {text_prompt}")
     return text_prompt
 
     
