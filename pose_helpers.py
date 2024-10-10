@@ -132,6 +132,8 @@ def intermediate_points_body(keypoints:List[Union[Keypoint, None]],n_points=1)->
         keypoint2 = keypoints[k2_index - 1]
 
         if keypoint1 is None or keypoint2 is None:
+            for i in range(1,1+n_points):
+                new_points.append(None)
             continue
 
         total_x_dist=keypoint2.x-keypoint1.x
