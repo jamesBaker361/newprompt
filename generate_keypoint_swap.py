@@ -13,7 +13,32 @@ from accelerate import Accelerator
 from controlnet_aux.open_pose.body import Keypoint
 from tqdm.auto import tqdm
 from torchvision import transforms as tfms
+import argparse
+import wandb
+from experiment_helpers.training import train_unet
 
+parser=argparse.ArgumentParser()
+
+
+def assemble_grid(images, columns=4, bg_color=(255, 255, 255)):
+    # Determine the dimensions of the individual images
+    image_width, image_height = images[0].size
+
+    # Calculate the number of rows needed
+    rows = (len(images) + columns - 1) // columns  # Ceiling division
+
+    # Create a new blank image for the grid
+    grid_width = columns * image_width
+    grid_height = rows * image_height
+    grid_image = Image.new('RGB', (grid_width, grid_height), bg_color)
+
+    # Paste the images into the grid
+    for idx, img in enumerate(images):
+        x_offset = (idx % columns) * image_width
+        y_offset = (idx // columns) * image_height
+        grid_image.paste(img, (x_offset, y_offset))
+
+    return grid_image
 
 def step(
     self:DDIMScheduler,
@@ -51,7 +76,7 @@ def step(
     alpha_prod_t_prev = self.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else self.final_alpha_cumprod
 
     beta_prod_t = 1 - alpha_prod_t
-    #print('\talpha prev,current',alpha_prod_t_prev,alpha_prod_t)
+    #print('\t t,alpha_prod_t_prev,alpha_prod_t',timestep,alpha_prod_t_prev,alpha_prod_t)
     # 3. compute predicted original sample from predicted noise also called
     # "predicted x_0" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
     if self.config.prediction_type == "epsilon":
@@ -112,6 +137,32 @@ def step(
 
     return DDIMSchedulerOutput(prev_sample=prev_sample, pred_original_sample=pred_original_sample)
 
+
+def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator,init_sigma_prepare_latents, latents=None):
+    shape = (
+        batch_size,
+        num_channels_latents,
+        int(height) // self.vae_scale_factor,
+        int(width) // self.vae_scale_factor,
+    )
+    if isinstance(generator, list) and len(generator) != batch_size:
+        raise ValueError(
+            f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
+            f" size of {batch_size}. Make sure the batch size matches the length of the generators."
+        )
+
+    if latents is None:
+        latents = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
+        # scale the initial noise by the standard deviation required by the scheduler
+        latents = latents * self.scheduler.init_noise_sigma
+    else:
+        latents = latents.to(device)
+        if init_sigma_prepare_latents:
+            latents = latents * self.scheduler.init_noise_sigma
+
+    
+    return latents
+
 @torch.no_grad()
 def forward(
     self:UnsafeStableDiffusionPipeline,
@@ -140,6 +191,7 @@ def forward(
         Union[Callable[[int, int, Dict], None], PipelineCallback, MultiPipelineCallbacks]
     ] = None,
     callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+    init_sigma_prepare_latents=True,
     **kwargs,
 ):
 
@@ -153,7 +205,6 @@ def forward(
     height = height or self.unet.config.sample_size * self.vae_scale_factor
     width = width or self.unet.config.sample_size * self.vae_scale_factor
     # to deal with lora scaling and other possible forward hooks
-
     # 1. Check inputs. Raise error if not correct
     self.check_inputs(
         prompt,
@@ -207,6 +258,7 @@ def forward(
     if self.do_classifier_free_guidance:
         prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
 
+    latent_list=[]
     if ip_adapter_image is not None or ip_adapter_image_embeds is not None:
         image_embeds = self.prepare_ip_adapter_image_embeds(
             ip_adapter_image,
@@ -223,7 +275,7 @@ def forward(
 
     # 5. Prepare latent variables
     num_channels_latents = self.unet.config.in_channels
-    latents = self.prepare_latents(
+    latents = prepare_latents(self,
         batch_size * num_images_per_prompt,
         num_channels_latents,
         height,
@@ -231,6 +283,7 @@ def forward(
         prompt_embeds.dtype,
         device,
         generator,
+        init_sigma_prepare_latents,
         latents,
     )
 
@@ -255,8 +308,10 @@ def forward(
     # 7. Denoising loop
     num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
     self._num_timesteps = len(timesteps)
-    with self.progress_bar(total=num_inference_steps) as progress_bar:
+    with self.progress_bar(total=len(timesteps)) as progress_bar:
         for i, t in enumerate(timesteps):
+            print("inference t",t)
+            latent_list.append(latents)
             if self.interrupt:
                 continue
 
@@ -324,14 +379,16 @@ def forward(
     if not return_dict:
         return (image, has_nsfw_concept)
 
-    return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
+    return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept),latent_list
 
 
 ## Inversion
 @torch.no_grad()
 def invert(
+    pipe,
     start_latents,
     prompt,
+    start_noise,
     guidance_scale=3.5,
     num_inference_steps=80,
     num_images_per_prompt=1,
@@ -341,7 +398,7 @@ def invert(
 ):
 
     # Encode prompt
-    text_embeddings = pipe._encode_prompt(
+    positive,negative = pipe.encode_prompt(
         prompt, device, num_images_per_prompt, do_classifier_free_guidance, negative_prompt
     )
 
@@ -356,15 +413,23 @@ def invert(
     pipe.scheduler.set_timesteps(num_inference_steps, device=device)
 
     # Reversed timesteps <<<<<<<<<<<<<<<<<<<<
-    timesteps = reversed(pipe.scheduler.timesteps)
+    #timesteps = torch.cat((reversed(pipe.scheduler.timesteps),torch.tensor([1000]).to(pipe.device)))
+    timesteps=(reversed(pipe.scheduler.timesteps))
 
-    for i in tqdm(range(1, num_inference_steps), total=num_inference_steps - 1):
+    if do_classifier_free_guidance:
+        text_embeddings=torch.cat([negative,positive])
+    else:
+        text_embeddings=positive
 
-        # We'll skip the final iteration
-        if i >= num_inference_steps - 1:
-            continue
+    if start_noise:
+        noise=torch.randn(latents.size(),device=device)
+        latents+=pipe.scheduler.alphas_cumprod[timesteps[0].item()]*noise
+
+    for i in tqdm(range(1, num_inference_steps), total=num_inference_steps-1 ):
 
         t = timesteps[i]
+        print("inversion loop t",t)
+        
 
         # Expand the latents if we are doing classifier free guidance
         latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
@@ -387,10 +452,10 @@ def invert(
         latents = (latents - (1 - alpha_t).sqrt() * noise_pred) * (alpha_t_next.sqrt() / alpha_t.sqrt()) + (
             1 - alpha_t_next
         ).sqrt() * noise_pred
-
+        #print('invert t,alpha_t,alpha_t_next',t,alpha_t,alpha_t_next)
         # Store
         intermediate_latents.append(latents)
-        intermediate_latent_dict[t]=latents
+        intermediate_latent_dict[t.item()]=latents
 
     return torch.cat(intermediate_latents),intermediate_latent_dict
 
@@ -416,37 +481,84 @@ def keypoint_list_to_dict(keypoint_list:List[Keypoint])-> dict:
             d[k.id]=k
     return d
 
-def swap_generate(src_image: Image.Image, 
-                  steps:int,
-                  sd_featurizer:SDFeaturizer,
-                  pipeline:UnsafeStableDiffusionPipeline,
-                  prompt:str,
-                  intervention_step:int)-> Image.Image:
+parser.add_argument("--src_image_path",type=str,default="league5.jpg")
+parser.add_argument("--steps",type=int,default=30)
+parser.add_argument("--vae_config_coefficient",action="store_true")
+parser.add_argument("--init_noise_config_coefficient",action="store_true")
+parser.add_argument("--image_dir",type=str,default="graphs/")
+parser.add_argument("--intervention_step",type=int,default=0)
+parser.add_argument("--gen_image_path",type=str,default="league4.jpg")
+parser.add_argument("--src_prompt",type=str,default="woman with blue hair holding gun")
+parser.add_argument("--gen_prompt",type=str,default="woman standing and posing")
+parser.add_argument("--train_unet",action="store_true")
+parser.add_argument("--unet_epochs",type=int,default=20)
+parser.add_argument("--project_name",type=str,default="inversion")
+parser.add_argument("--init_sigma_prepare_latents",action="store_true")
+
+#@torch.no_grad()
+def swap_generate(args)-> Image.Image:
+    steps=args.steps
+    intervention_step=args.intervention_step
+    try:
+        accelerator=Accelerator(log_with="wandb",mixed_precision="no",gradient_accumulation_steps=8)
+        accelerator.init_trackers(project_name=args.project_name,config=vars(args))
+        
+        pipe=UnsafeStableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1").to(accelerator.device)
+    except:
+        pipe=UnsafeStableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1").to("cpu")
+
+
+    src_image=Image.open(args.src_image_path).resize((512,512))
+    gen_image=Image.open(args.gen_image_path).resize((512,512))
+    if args.train_unet:
+        unet=pipe.unet
+        unet.train()
+        optimizer=torch.optim.AdamW([p for p in unet.parameters() if p.requires_grad])
+        pipe=train_unet(pipe,args.unet_epochs,[src_image for _ in range(args.steps)]+[gen_image for _ in range(args.steps)],
+                        [args.src_prompt for _ in range(args.steps)]+[args.gen_prompt for _ in range(args.steps)],
+                        optimizer,
+                        False,
+                        "woman",
+                        1,
+                        10.0,
+                        "",
+                        accelerator,
+                        steps,
+                        0.0,
+                        True
+                        )
+
+    
     #make timesteps thing
     height,width=src_image.size
     detector=OpenPoseDetectorProbs.from_pretrained('lllyasviel/Annotators')
 
     pose_result=get_poseresult(detector, src_image,height,False,True)
     src_keypoints=pose_result.body.keypoints
-    intermediate_src_keypoints=intermediate_points_body(src_keypoints,2)
+    intermediate_src_keypoints=intermediate_points_body(src_keypoints,4)
     all_src_keypoints=src_keypoints+intermediate_src_keypoints
 
     draw_points(all_src_keypoints,src_image).save("src.png")
 
     all_src_dict=keypoint_list_to_dict(all_src_keypoints)
-    #print(all_src_dict)
+    coefficient=1.0
+    if args.vae_config_coefficient:
+        coefficient*=pipe.vae.config.scaling_factor
+    if args.init_noise_config_coefficient:
+        coefficient*=pipe.scheduler.init_noise_sigma
 
     with torch.no_grad():
         src_start_latents = pipe.vae.encode(tfms.functional.to_tensor(src_image).unsqueeze(0).to(pipe.device) * 2 - 1)
-    src_start_latents = 0.18215 * src_start_latents.latent_dist.sample()
-    _,inverted_src_dict=invert(src_start_latents,prompt,num_inference_steps=steps,device=pipe.device)
+    src_start_latents = coefficient * src_start_latents.latent_dist.sample()
+    #_,inverted_src_dict=invert(src_start_latents,prompt,num_inference_steps=steps,device=pipe.device)
+    #print([k for k in inverted_src_dict.keys()])
 
 
     generator=torch.Generator()
-    timesteps,_=retrieve_timesteps(pipeline.scheduler,steps)
+    timesteps,_=retrieve_timesteps(pipe.scheduler,steps)
     print(timesteps[:intervention_step])
     print(timesteps[intervention_step:])
-    num_channels_latents = pipeline.unet.config.in_channels
+    '''num_channels_latents = pipeline.unet.config.in_channels
     latents=pipeline.prepare_latents(
             1,
             num_channels_latents,
@@ -461,14 +573,67 @@ def swap_generate(src_image: Image.Image,
     print('latesnts size',latents.size())
     
     print("normal image")
-    gen_image=forward(pipeline,prompt,height,width,steps,latents=latents).images[0]
+    gen_image=forward(pipeline,prompt,height,width,steps,latents=latents).images[0]'''
     #gen_image.save("gen1.png")
-    gen_pose_result=get_poseresult(detector, src_image,height,False,True)
+
+    coefficient=1.0
+    if args.vae_config_coefficient:
+        coefficient*=pipe.vae.config.scaling_factor
+    if args.init_noise_config_coefficient:
+        coefficient*=pipe.scheduler.init_noise_sigma
+
+    
+    with torch.no_grad():
+        gen_start_latents = pipe.vae.encode(tfms.functional.to_tensor(gen_image).unsqueeze(0).to(pipe.device) * 2 - 1)
+    gen_start_latents = coefficient * gen_start_latents.latent_dist.sample()
+    gen_list,gen_latent_dict=invert(pipe,gen_start_latents,args.gen_prompt,args.init_sigma_prepare_latents,num_inference_steps=steps,device=pipe.device)
+
+    def assemble(latent_list, name):
+        inverted_image_list=[]
+        for l in latent_list:
+            with torch.no_grad():
+                try:
+                    image = pipe.vae.decode(l.unsqueeze(0) / coefficient, return_dict=False, generator=generator)[
+                        0
+                    ]
+                except:
+                    image = pipe.vae.decode(l / coefficient, return_dict=False, generator=generator)[
+                        0
+                    ]
+            do_denormalize = [True] * image.shape[0]
+        
+
+            image = pipe.image_processor.postprocess(image, output_type="pil", do_denormalize=do_denormalize)[0]
+
+            inverted_image_list.append(image)
+
+        
+        img=assemble_grid(inverted_image_list)
+        return img #.save(name)
+    gen_list,gen_latent_dict=invert(pipe,gen_start_latents,args.gen_prompt,args.init_sigma_prepare_latents,num_inference_steps=steps,device=pipe.device)
+    img=assemble(gen_list,"grid_invert.png")
+    accelerator.log({
+        "grid_invert":wandb.Image(img)
+    })
+
+    gen_list,gen_latent_dict=invert(pipe,gen_start_latents,args.gen_prompt,args.init_sigma_prepare_latents,num_inference_steps=steps,device=pipe.device,do_classifier_free_guidance=False)
+    img=assemble(gen_list,"grid_invert_no_cfg.png")
+    accelerator.log({
+        "grid_invert_no_cfg":wandb.Image(img)
+    })
+
+    gen_list,gen_latent_dict=invert(pipe,gen_start_latents,args.gen_prompt,args.init_sigma_prepare_latents,num_inference_steps=steps,device=pipe.device,guidance_scale=7.5)
+    img=assemble(gen_list,"grid_invert_high_cfg.png")
+    accelerator.log({
+        "grid_invert_high_cfg":wandb.Image(img)
+    })
+
+    gen_pose_result=get_poseresult(detector, gen_image,height,False,True)
     gen_keypoints=gen_pose_result.body.keypoints
-    intermediate_gen_keypoints=intermediate_points_body(gen_keypoints,2)
+    intermediate_gen_keypoints=intermediate_points_body(gen_keypoints,4)
     all_gen_keypoints=gen_keypoints+intermediate_gen_keypoints
 
-    draw_points(all_gen_keypoints, gen_image).save("gen1.png")
+    #draw_points(all_gen_keypoints, gen_image).save("gen1.png")
 
     all_gen_dict=keypoint_list_to_dict(all_gen_keypoints)
     #print(all_gen_dict)
@@ -477,31 +642,82 @@ def swap_generate(src_image: Image.Image,
     post_timesteps=timesteps[intervention_step:]
 
     print("pre")
-    pre_latents=forward(pipeline,prompt,height,width,steps,timesteps=pre_timesteps,latents=latents_clone,output_type="latent").images[0]
+    #latents_clone=gen_latent_dict[1000]
+    #pre_latents=forward(pipeline,prompt,height,width,steps,timesteps=pre_timesteps,latents=latents_clone,output_type="latent").images[0]
+    t=post_timesteps[0].item()
+    pre_latents=gen_latent_dict[t].cpu().detach().numpy()[0]
+    
+    #inversion_latents=inverted_src_dict[t].cpu().detach().numpy()[0]
     for k_id,point in all_src_dict.items():
         if k_id in all_gen_dict:
-            src_x=int(point.x*height)
-            src_y=int(point.y*width)
+            print('matched for ',k_id)
+            src_x=int(point.x*height)//8
+            src_y=int(point.y*width)//8
 
             gen_point=all_gen_dict[k_id]
-            gen_x=int(gen_point.x*height)
-            gen_y=int(gen_point.y*width)
+            gen_x=int(gen_point.x*height)//8
+            gen_y=int(gen_point.y*width)//8
 
-            #pre_latents[gen_x][gen_y]=
-    print(pre_latents.size())
+            
+
+            #print(pre_latents.size())
+            #print(inversion_latents.size())
+
+            
+            #print(pre_latents[:,gen_x,gen_y])
+            #print(inversion_latents[:,src_x,src_y])
+            #pre_latents[:,gen_x,gen_y]=inversion_latents[:,src_x,src_y]
+    pre_latents=torch.tensor(pre_latents).unsqueeze(0)
+    #print(pre_latents.size())
     print("post")
-    post_image=forward(pipeline,prompt,height,width,steps,timesteps=post_timesteps,latents=pre_latents).images[0]
-    post_image.save("post.png")
+    post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,timesteps=post_timesteps,init_sigma_prepare_latents=args.init_sigma_prepare_latents,latents=pre_latents)
+
+    
+    img=assemble(latent_list,"grid_forward.jpg")
+    accelerator.log({
+        "grid_forward":wandb.Image(img)
+    })
+
+    post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,
+        init_sigma_prepare_latents=args.init_sigma_prepare_latents,latents=pre_latents)
+    img=assemble(latent_list,"grid_forward_no_timesteps.jpg")
+    accelerator.log({
+        "grid_forward_no_time":wandb.Image(img)
+    })
+    
+
+    post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,
+                                   init_sigma_prepare_latents=args.init_sigma_prepare_latents,timesteps=post_timesteps)    
+    img=assemble(latent_list,"grid_forward_no_latents.jpg")
+    accelerator.log({
+        "grid_forward_no_latents":wandb.Image(img)
+    })
+
+    post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,init_sigma_prepare_latents=args.init_sigma_prepare_latents)    
+    img=assemble(latent_list,"grid_forward_nothing.jpg")
+    accelerator.log({
+        "grid_forward_nothing":wandb.Image(img)
+    })
+
+
+    post_image=post_image.images[0]
+    total_width = gen_image.width + post_image.width
+    max_height = max(gen_image.height, post_image.height)
+
+    # Create a blank canvas to paste the images
+    new_image = Image.new('RGB', (total_width, max_height))
+
+    # Paste the two images onto the blank canvas
+    new_image.paste(gen_image, (0, 0))
+    new_image.paste(post_image, (gen_image.width, 0))
+
+    # Save the concatenated image
+    new_image.save("concatenated_image_horizontal.jpg")
 
     return
 
 if __name__=='__main__':
     print_details()
-    try:
-        accelerator=Accelerator()
-        
-        pipe=UnsafeStableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1").to(accelerator.device)
-    except:
-        pipe=UnsafeStableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1").to("cpu")
-    image=Image.open("boy.png")
-    swap_generate(image,25,None,pipe,"boy standing",10)
+    args=parser.parse_args()
+    print(args)
+    swap_generate(args)
