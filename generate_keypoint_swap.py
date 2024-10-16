@@ -483,8 +483,7 @@ def keypoint_list_to_dict(keypoint_list:List[Keypoint])-> dict:
 
 def mse(image1:Image.Image, image2:Image.Image)->float:
     # Ensure images have the same size
-    if image1.size != image2.size:
-        raise ValueError("Images must have the same dimensions")
+    image1=image1.resize(image2.size)
 
     # Convert images to NumPy arrays
     arr1 = np.array(image1)
