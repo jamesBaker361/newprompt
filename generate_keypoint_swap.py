@@ -481,6 +481,21 @@ def keypoint_list_to_dict(keypoint_list:List[Keypoint])-> dict:
             d[k.id]=k
     return d
 
+def mse(image1:Image.Image, image2:Image.Image)->float:
+    # Ensure images have the same size
+    if image1.size != image2.size:
+        raise ValueError("Images must have the same dimensions")
+
+    # Convert images to NumPy arrays
+    arr1 = np.array(image1)
+    arr2 = np.array(image2)
+
+    # Calculate the MSE
+    squared_diff = (arr1 - arr2) ** 2
+    mse_value = np.mean(squared_diff)
+
+    return mse_value
+
 parser.add_argument("--src_image_path",type=str,default="league5.jpg")
 parser.add_argument("--steps",type=int,default=30)
 parser.add_argument("--vae_config_coefficient",action="store_true")
@@ -674,29 +689,37 @@ def swap_generate(args)-> Image.Image:
 
     
     img=assemble(latent_list,"grid_forward.jpg")
+    score=mse(img,gen_image)
     accelerator.log({
-        "grid_forward":wandb.Image(img)
+        "grid_forward":wandb.Image(img),
+        "grid_forward_mse":score
     })
 
     post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,
         init_sigma_prepare_latents=args.init_sigma_prepare_latents,latents=pre_latents)
     img=assemble(latent_list,"grid_forward_no_timesteps.jpg")
+    score=mse(img,gen_image)
     accelerator.log({
-        "grid_forward_no_time":wandb.Image(img)
+        "grid_forward_no_time":wandb.Image(img),
+        "grid_forward_no_time_mse":score
     })
     
 
     post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,
                                    init_sigma_prepare_latents=args.init_sigma_prepare_latents,timesteps=post_timesteps)    
     img=assemble(latent_list,"grid_forward_no_latents.jpg")
+    score=mse(img,gen_image)
     accelerator.log({
-        "grid_forward_no_latents":wandb.Image(img)
+        "grid_forward_no_latents":wandb.Image(img),
+        "grid_forward_no_latents_mse":score
     })
 
     post_image,latent_list=forward(pipe,args.gen_prompt,height,width,steps,init_sigma_prepare_latents=args.init_sigma_prepare_latents)    
     img=assemble(latent_list,"grid_forward_nothing.jpg")
+    score=mse(img,gen_image)
     accelerator.log({
-        "grid_forward_nothing":wandb.Image(img)
+        "grid_forward_nothing":wandb.Image(img),
+        "grid_forward_nothing_mse":score
     })
 
 
